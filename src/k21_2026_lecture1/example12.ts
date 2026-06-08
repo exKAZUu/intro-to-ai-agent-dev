@@ -1,0 +1,32 @@
+/**
+ * Responses APIのusageフィールドを参照し、入出力トークン数と処理時間を比較する例。
+ */
+
+import OpenAI from 'openai';
+
+process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
+
+const client = new OpenAI();
+
+const time1 = Date.now();
+const response1 = await client.responses.create({
+  model: 'gpt-4o-mini',
+  temperature: 0, // ランダム性を抑える
+  input: '最強の生物種を理由とともに1つだけ挙げて',
+});
+// GPT-4o Miniの応答を表示
+console.log(response1.output_text, `（処理時間: ${Date.now() - time1} ms）`);
+// 入出力のトークン数を表示
+console.log(response1.usage);
+
+const time2 = Date.now();
+const response2 = await client.responses.create({
+  model: 'gpt-5.4-nano',
+  // gpt-5.4-nanoはeffort省略時にreasoning_tokensが0になるため、reasoningを使うには明示が必要。
+  reasoning: { effort: 'low' },
+  input: '最強の生物種を理由とともに1つだけ挙げて',
+});
+// GPT-5 Nanoの応答を表示
+console.log(response2.output_text, `（処理時間: ${Date.now() - time2} ms）`);
+// 入出力のトークン数を表示
+console.log(response2.usage);
