@@ -66,7 +66,7 @@ function createTavilySearchTool() {
       .strict(),
     strict: true,
     async execute({ query }, _context, details) {
-      const callId = details?.toolCall.callId ?? 'unknown';
+      const callId = details?.toolCall?.callId ?? 'unknown';
       console.log(`\n[tool] tavily_search callId=${callId}`);
       console.log(`[tool] arguments: ${JSON.stringify({ query })}`);
 
@@ -93,7 +93,7 @@ function createBinaryOperationTool(
       .strict(),
     strict: true,
     async execute({ term1, term2 }, _context, details) {
-      const callId = details?.toolCall.callId ?? 'unknown';
+      const callId = details?.toolCall?.callId ?? 'unknown';
       console.log(`\n[tool] ${name} callId=${callId}`);
       console.log(`[tool] arguments: ${JSON.stringify({ term1, term2 })}`);
 

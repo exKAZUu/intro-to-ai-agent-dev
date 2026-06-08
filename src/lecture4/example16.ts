@@ -7,7 +7,7 @@ import type { DynamicStructuredTool } from '@langchain/core/tools';
 import { Annotation, END, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { MultiServerMCPClient } from '@langchain/mcp-adapters';
 import { ChatOpenAI } from '@langchain/openai';
-import { createAgent, type ReactAgent, type ResponseFormatUndefined } from 'langchain';
+import { createAgent } from 'langchain';
 import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
@@ -29,10 +29,11 @@ const DomainSelectionSchema = z.object({
 
 type DomainSuggestion = z.infer<typeof DomainSuggestionSchema>;
 type DomainSelection = z.infer<typeof DomainSelectionSchema>;
-type DomainWorkflowComponents = {
-  suggesterAgent: ReactAgent<ResponseFormatUndefined>;
-  selectorAgent: ReactAgent<ResponseFormatUndefined>;
-  graph: ReturnType<typeof createDomainWorkflowGraph>;
+type DomainWorkflowGraph = {
+  invoke(state: Pick<typeof DomainWorkflowState.State, 'messages'>): Promise<typeof DomainWorkflowState.State>;
+};
+type DomainWorkflowComponents = Awaited<ReturnType<typeof createDomainAgents>> & {
+  graph: DomainWorkflowGraph;
 };
 type DomainWorkflowRuntime = {
   components?: DomainWorkflowComponents;
@@ -161,8 +162,22 @@ async function ensureWorkflowInitialized(): Promise<DomainWorkflowComponents> {
     return domainWorkflowRuntime.components;
   }
 
+  const components = await createDomainWorkflowComponents();
+
+  domainWorkflowRuntime.components = components;
+  return components;
+}
+
+async function createDomainWorkflowComponents(): Promise<DomainWorkflowComponents> {
+  return {
+    ...(await createDomainAgents()),
+    graph: createDomainWorkflowGraph(),
+  };
+}
+
+async function createDomainAgents() {
   const tools = await loadDomainTools();
-  const components: DomainWorkflowComponents = {
+  return {
     suggesterAgent: createAgent({
       model: new ChatOpenAI({ model: 'gpt-5-mini' }),
       tools,
@@ -174,11 +189,7 @@ async function ensureWorkflowInitialized(): Promise<DomainWorkflowComponents> {
       systemPrompt:
         'あなたは取得すべきドメインを選定するアシスタントです。与えられた候補から1つだけ選び、選定理由を日本語で説明してください。回答は domainToRegister と reason を持つJSONで返してください。',
     }),
-    graph: createDomainWorkflowGraph(),
   };
-
-  domainWorkflowRuntime.components = components;
-  return components;
 }
 
 function getDomainWorkflowComponents(): DomainWorkflowComponents {
