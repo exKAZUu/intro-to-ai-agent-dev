@@ -26,8 +26,9 @@ for (let i = 0; i < 3; i++) {
   });
   console.log('Input:', userMessage);
   console.log('Previous response ID:', previousResponseId ?? '(なし)');
-  console.log('Output:', response.output_text);
   displayReasoning(response);
+  console.log('--- 回答 ---');
+  console.log(response.output_text);
   console.log();
 
   previousResponseId = response.id;
@@ -37,12 +38,14 @@ function displayReasoning(response: Response) {
   const reasoningItems = response.output.filter((item) => item.type === 'reasoning');
   const reasoningTexts = reasoningItems.flatMap((item) => item.content?.map(({ text }) => text) ?? []);
   if (reasoningTexts.length > 0) {
-    console.log('Reasoning text:', reasoningTexts.join('\n'));
+    console.log('--- 推論テキスト ---');
+    console.log(reasoningTexts.join('\n'));
     return;
   }
 
   const reasoningSummaries = reasoningItems.flatMap((item) => item.summary.map(({ text }) => text));
-  console.log('Reasoning summary:', reasoningSummaries.join('\n') || '(取得できませんでした)');
+  console.log('--- 推論サマリ ---');
+  console.log(reasoningSummaries.join('\n') || '(取得できませんでした)');
 }
 
 // 入力例1:
