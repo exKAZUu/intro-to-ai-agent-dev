@@ -1,5 +1,5 @@
 /**
- * 計算問題を使って、モデルによる正確さとトークン使用量の違いを見るプログラム例。
+ * 計算問題を使って、推論の有無で正確さとトークン使用量の違いを見るプログラム例。
  */
 
 import OpenAI from 'openai';
@@ -11,7 +11,7 @@ const client = new OpenAI();
 
 const time1 = Date.now();
 const response1 = await client.responses.create({
-  model: 'gpt-4o-mini',
+  model: 'gpt-5.4-nano',
   temperature: 0, // ランダム性を抑える
   input: '421097×514298の計算結果を教えて',
 });
