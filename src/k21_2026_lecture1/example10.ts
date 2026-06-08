@@ -1,5 +1,5 @@
 /**
- * Developer相当の指示を維持しながら、Responses API側の履歴を参照してユーザ入力を3回まで逐次英訳するインタラクティブな例。
+ * instructionsを用いて、会話を通じてAIの役割を維持するプログラム例。
  */
 
 import OpenAI from 'openai';

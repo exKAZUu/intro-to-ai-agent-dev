@@ -1,5 +1,5 @@
 /**
- * ReasoningモデルGPT-5 Nanoに翻訳タスクを繰り返し投げ、Responses API側の履歴を参照する例。
+ * 推論モデルに翻訳指示を与え、履歴つき対話での挙動を見るプログラム例。
  */
 
 import OpenAI from 'openai';

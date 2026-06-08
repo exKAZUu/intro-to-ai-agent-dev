@@ -1,5 +1,5 @@
 /**
- * 開発者メッセージを用いて、AIの回答文を制御するプログラム例。
+ * AIの過去の回答を決め打ちし、その続きとして質問させるプログラム例。
  */
 
 import OpenAI from 'openai';
@@ -13,14 +13,18 @@ const response = await client.responses.create({
   temperature: 0, // ランダム性を抑える
   input: [
     {
-      role: 'developer',
-      content: '語尾に「にゃ」を付けて',
+      role: 'user',
+      content: '日本の地理的な中心に位置する都道府県を一つ挙げてください。',
+    },
+    {
+      role: 'assistant',
+      content: '岐阜県',
     },
     {
       role: 'user',
-      content: 'おはよう',
+      content: 'その南にある都道府県は？',
     },
   ],
 });
-// GPT-4oの応答を表示
+// GPT-4o Miniの応答を表示
 console.log(response.output_text);

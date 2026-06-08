@@ -1,5 +1,5 @@
 /**
- * モデルごとの回答、処理時間、トークン使用量を比較するプログラム例。
+ * 計算問題を使って、モデルによる正確さとトークン使用量の違いを見るプログラム例。
  */
 
 import OpenAI from 'openai';
@@ -11,8 +11,8 @@ const client = new OpenAI();
 const time1 = Date.now();
 const response1 = await client.responses.create({
   model: 'gpt-4o-mini',
-  temperature: 0, // ランダム性を抑える
-  input: 'あらゆる観点から徹底的に検討した上で、最強の生物種を理由とともに1つだけ挙げて',
+  // 正解は 216,569,344,906
+  input: '421097×514298の計算結果を教えて',
 });
 // GPT-4o Miniの応答を表示
 console.log(response1.output_text, `（処理時間: ${Date.now() - time1} ms）`);
@@ -21,10 +21,9 @@ console.log(response1.usage);
 
 const time2 = Date.now();
 const response2 = await client.responses.create({
-  model: 'gpt-5.4-nano',
-  // gpt-5.4-nanoでは、effortを指定すると推論を有効にできる。
-  reasoning: { effort: 'high' },
-  input: 'あらゆる観点から徹底的に検討した上で、最強の生物種を理由とともに1つだけ挙げて',
+  model: 'gpt-5-nano',
+  // 正解は 216,569,344,906
+  input: '421097×514298の計算結果を教えて',
 });
 // GPT-5 Nanoの応答を表示
 console.log(response2.output_text, `（処理時間: ${Date.now() - time2} ms）`);

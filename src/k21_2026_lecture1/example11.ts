@@ -1,5 +1,5 @@
 /**
- * 翻訳用Developer相当の指示付きの対話を繰り返し、Responses API側の履歴を参照する例。
+ * 強い翻訳指示を与え、ユーザの脱線要求に対するAIの挙動を見るプログラム例。
  */
 
 import OpenAI from 'openai';
