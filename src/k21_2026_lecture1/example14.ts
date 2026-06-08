@@ -3,6 +3,7 @@
  */
 
 import OpenAI from 'openai';
+import type { Response } from 'openai/resources/responses/responses';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -17,16 +18,31 @@ for (let i = 0; i < 3; i++) {
   if (!userMessage) continue;
 
   const response = await client.responses.create({
-    model: 'gpt-5-nano',
+    model: 'gpt-5.4-nano',
+    reasoning: { effort: 'high', summary: 'detailed' },
     instructions,
     input: userMessage,
     previous_response_id: previousResponseId,
   });
   console.log('Input:', userMessage);
   console.log('Previous response ID:', previousResponseId ?? '(なし)');
-  console.log('Output:', response.output_text, '\n');
+  console.log('Output:', response.output_text);
+  displayReasoning(response);
+  console.log();
 
   previousResponseId = response.id;
+}
+
+function displayReasoning(response: Response) {
+  const reasoningItems = response.output.filter((item) => item.type === 'reasoning');
+  const reasoningTexts = reasoningItems.flatMap((item) => item.content?.map(({ text }) => text) ?? []);
+  if (reasoningTexts.length > 0) {
+    console.log('Reasoning text:', reasoningTexts.join('\n'));
+    return;
+  }
+
+  const reasoningSummaries = reasoningItems.flatMap((item) => item.summary.map(({ text }) => text));
+  console.log('Reasoning summary:', reasoningSummaries.join('\n') || '(取得できませんでした)');
 }
 
 // 入力例1:
