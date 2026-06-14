@@ -32,7 +32,7 @@ const agent = new Agent({
   instructions: `
 あなたはAIエージェント開発講座の教材調査担当です。
 前の例で演習運営計画を作ったので、次は演習グループに割り当てる題材を選びます。
-必ず tavily_search を使い、Agents SDK の主要機能から第3回演習で扱うべき題材を3つ選んでください。
+必ず tavily_search を使い、tools、MCP、guardrails を第3回演習で扱う題材として調べてください。
 最終回答は必ず日本語で書き、各題材について「選ぶ理由」と「演習で作るもの」を書き、最後に参考URLを列挙してください。
 `.trim(),
   model: 'gpt-4o-mini',
@@ -42,7 +42,7 @@ const agent = new Agent({
 
 const response = await run(
   agent,
-  'OpenAI Agents SDK JavaScript TypeScript tools handoffs guardrails tracing MCP hosted tools の第3回演習題材を調べてください。',
+  'OpenAI Agents SDK JavaScript TypeScript の tools、MCP、guardrails を第3回演習題材として調べてください。',
   { maxTurns: 5 }
 );
 displayResult(response.finalOutput);
