@@ -1,5 +1,5 @@
 /**
- * CodexのwebSearchModeを有効にし、lecture3/example07のhosted web search相当として外部情報を調べる例。
+ * CodexのwebSearchModeを有効にし、前例のアンケート分析結果を外部情報で補強する例。
  */
 
 import { Codex } from '@openai/codex-sdk';
@@ -13,10 +13,19 @@ const thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(`
-OpenAI Agents SDK TypeScript の tools、MCP、guardrails について、第3回講義で扱う理由を日本語で短く整理してください。
-可能なら参照した情報源も示してください。ファイルは変更しないでください。
-`.trim());
+const turn = await thread.run(
+  `
+前の例では、第3回の試行授業アンケートから以下の結果を得ました。
+
+- 平均満足度: 3.8
+- 最頻出の難所: tools, MCP
+- 改善アクション: toolsの利用手順を整理する、MCPの基本概念と接続手順を補足する、toolsとMCPを組み合わせた演習を追加する
+
+web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式情報を確認し、このアンケート結果に基づく次回改善案を3つに絞ってください。
+各改善案には、どの難所に対応するか、授業で追加する具体的な演習、参照した情報源を含めてください。
+ファイルは変更しないでください。
+`.trim()
+);
 
 console.log('\n=== 調査結果 ===\n');
 console.log(turn.finalResponse);
