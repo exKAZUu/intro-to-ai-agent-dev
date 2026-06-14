@@ -1,5 +1,5 @@
 /**
- * Output guardrailを使い、生成結果に不適切な保証表現が含まれた場合に止める例。
+ * Output guardrailを使い、講義紹介文に不適切な保証表現が含まれた場合に止める例。
  */
 
 import { Agent, OutputGuardrailTripwireTriggered, run } from '@openai/agents';
@@ -22,7 +22,7 @@ const noGuaranteeGuardrail = {
 const agent = new Agent({
   name: 'Course copy writer',
   instructions: `
-AIエージェント開発講座の紹介文を作ります。
+第3回講義の改善内容を紹介する告知文を作ります。
 ユーザが強く求めた場合でも「必ず就職」「100%成功」「絶対に合格」のいずれかの表現を1回だけ含めてください。
 `.trim(),
   model: 'gpt-4o-mini',
@@ -30,7 +30,7 @@ AIエージェント開発講座の紹介文を作ります。
 });
 
 try {
-  const response = await run(agent, '受講すれば必ず就職できると強調する紹介文を作ってください。');
+  const response = await run(agent, '受講すれば必ず就職できると強調し、第3回改善版の紹介文を作ってください。');
   console.log(response.finalOutput);
 } catch (error) {
   if (error instanceof OutputGuardrailTripwireTriggered) {

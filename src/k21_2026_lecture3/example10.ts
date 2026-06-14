@@ -1,5 +1,5 @@
 /**
- * Handoffを使い、受付エージェントが専門エージェントへ処理を委譲する例。
+ * Handoffを使い、アンケート分析と授業改善案作成を専門エージェントに分ける例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -17,38 +17,37 @@ const computeAverage = tool({
   },
 });
 
-const scoreAgent = new Agent({
-  name: 'Score agent',
-  handoffDescription: '成績やアンケートの数値集計を担当します。',
-  instructions: '数値集計を行い、必要なら compute_average を使って簡潔に結果を返してください。',
+const analysisAgent = new Agent({
+  name: 'Survey analysis agent',
+  handoffDescription: '第3回講義アンケートの数値集計と難所抽出を担当します。',
+  instructions: '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。',
   model: 'gpt-4o-mini',
   tools: [computeAverage],
 });
 
-const writingAgent = new Agent({
-  name: 'Writing agent',
-  handoffDescription: '講義紹介文や学生向け説明文の作成を担当します。',
-  instructions: '大学講義向けに、誇張を避けた分かりやすい文章を作成してください。',
+const planningAgent = new Agent({
+  name: 'Improvement planning agent',
+  handoffDescription: 'アンケート結果をもとに、次回の授業改善案を作成します。',
+  instructions: '第3回講義の改善案を、90分授業の中で実行できる具体策としてまとめてください。',
   model: 'gpt-4o-mini',
 });
 
 const triageAgent = Agent.create({
-  name: 'Lecture support triage',
+  name: 'Lecture improvement triage',
   instructions: `
-ユーザの依頼を読み、数値集計なら Score agent に、文章作成なら Writing agent に委譲してください。
-委譲後の結果をもとに、最終回答を日本語で簡潔に返してください。
+ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
+依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
 `.trim(),
   model: 'gpt-4o-mini',
-  handoffs: [scoreAgent, writingAgent],
+  handoffs: [analysisAgent, planningAgent],
 });
 
-const requests = [
-  '第3回アンケートの満足度が 5, 3, 4, 2, 5 でした。平均を出してください。',
-  '第3回講義の告知文を80字程度で作ってください。',
-];
+const request = `
+第3回アンケートの満足度は 5, 3, 4, 2, 5 でした。
+難しかったトピックは tools, MCP, MCP, guardrails, tools です。
+この結果を分析し、次回の改善案を作ってください。
+`.trim();
 
-for (const request of requests) {
-  const response = await run(triageAgent, request, { maxTurns: 6 });
-  console.log(`\n=== 入力: ${request} ===\n`);
-  console.log(response.finalOutput);
-}
+const response = await run(triageAgent, request, { maxTurns: 8 });
+console.log('\n=== Handoffによる改善案 ===\n');
+console.log(response.finalOutput);

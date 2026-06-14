@@ -1,5 +1,5 @@
 /**
- * Tracingを使い、handoffとツール利用を含む実行を1つの処理として記録する例。
+ * Tracingを使い、handoffとツール利用を含む講義改善フローを1つの処理として記録する例。
  */
 
 import { Agent, run, tool, withTrace } from '@openai/agents';
@@ -17,25 +17,28 @@ const computeAverage = tool({
   },
 });
 
-const scoreAgent = new Agent({
-  name: 'Trace score agent',
-  handoffDescription: '数値集計を担当します。',
-  instructions: '必要に応じて compute_average を使って集計してください。',
+const analysisAgent = new Agent({
+  name: 'Trace survey analysis agent',
+  handoffDescription: 'アンケート集計を担当します。',
+  instructions:
+    '満足度平均は compute_average を使って計算し、tools、MCP、guardrails のどれを優先改善すべきかを整理してください。',
   model: 'gpt-4o-mini',
   tools: [computeAverage],
 });
 
 const triageAgent = Agent.create({
-  name: 'Trace triage agent',
-  instructions: '数値集計の依頼は Trace score agent に委譲し、最終回答を簡潔に返してください。',
+  name: 'Trace lecture improvement triage',
+  instructions: 'アンケート分析の依頼は Trace survey analysis agent に委譲し、最終回答を簡潔に返してください。',
   model: 'gpt-4o-mini',
-  handoffs: [scoreAgent],
+  handoffs: [analysisAgent],
 });
 
-await withTrace('k21_2026_lecture3_tracing_example', async () => {
-  const response = await run(triageAgent, '満足度 5, 3, 4, 2, 5 の平均を出して、講義改善コメントを1文で添えて。', {
-    maxTurns: 6,
-  });
-  console.log('\n=== Trace対象の実行結果 ===\n');
+await withTrace('k21_2026_lecture3_improvement_trace', async () => {
+  const response = await run(
+    triageAgent,
+    '第3回アンケートの満足度 5, 3, 4, 2, 5 と難所 tools, MCP, MCP, guardrails, tools から、改善コメントを作ってください。',
+    { maxTurns: 6 }
+  );
+  console.log('\n=== Trace対象の講義改善フロー ===\n');
   console.log(response.finalOutput);
 });

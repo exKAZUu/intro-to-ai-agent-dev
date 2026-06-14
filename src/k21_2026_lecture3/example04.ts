@@ -1,5 +1,5 @@
 /**
- * 複数のドメイン特化ツールを渡し、講義運営タスクを責務ごとのツールで処理する例。
+ * ドメイン特化ツールの入力契約を広げ、同じ講義アンケート人数から演習運営計画まで拡張する例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -7,59 +7,52 @@ import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const computeTotalScore = tool({
-  name: 'compute_total_score',
-  description: '小テスト、演習、レポートの点数から合計点を計算します。',
-  parameters: z.object({ quiz: z.number(), exercise: z.number(), report: z.number() }).strict(),
+const computeOperationPlan = tool({
+  name: 'compute_operation_plan',
+  description: '全体人数、グループ人数、グループ数、TA担当人数、教室容量から演習運営計画を計算します。',
+  parameters: z
+    .object({
+      total: z.number().int().describe('全体人数'),
+      groupSize: z.number().int().describe('1グループあたりの人数'),
+      groupCount: z.number().int().describe('実際に作ったグループ数'),
+      studentsPerTa: z.number().int().describe('TA1人あたりが担当できる人数'),
+      roomCapacity: z.number().int().describe('1教室あたりの収容人数'),
+    })
+    .strict(),
   strict: true,
-  execute({ quiz, exercise, report }) {
-    return { total: quiz + exercise + report };
-  },
-});
-
-const judgePass = tool({
-  name: 'judge_pass',
-  description: '合計点と合格点から合否を判定します。',
-  parameters: z.object({ total: z.number(), passingScore: z.number() }).strict(),
-  strict: true,
-  execute({ total, passingScore }) {
-    return { passed: total >= passingScore };
-  },
-});
-
-const computeClassAverage = tool({
-  name: 'compute_class_average',
-  description: '複数人の合計点から平均点を計算します。',
-  parameters: z.object({ totals: z.array(z.number()).min(1) }).strict(),
-  strict: true,
-  execute({ totals }) {
-    return { average: totals.reduce((sum, value) => sum + value, 0) / totals.length };
+  execute({ total, groupSize, groupCount, studentsPerTa, roomCapacity }) {
+    const participants = groupSize * groupCount;
+    return {
+      participants,
+      remaining: total - participants,
+      requiredTas: Math.ceil(participants / studentsPerTa),
+      requiredRooms: Math.ceil(participants / roomCapacity),
+    };
   },
 });
 
 const agent = new Agent({
-  name: 'Lecture score assistant',
+  name: 'Lecture operation planner',
   instructions: `
-講義の成績集計を行います。
-合計点、合否、平均点は必ず対応するツールを使ってください。
-最終回答では各学生の合計点と合否、クラス平均を簡潔にまとめてください。
+講義演習の運営計画を作ります。
+人数、余り、TA数、教室数は必ず compute_operation_plan を使い、暗算で答えないでください。
+最終回答では、参加人数、余り、必要TA数、必要教室数をまとめてください。
 `.trim(),
   model: 'gpt-4o-mini',
   modelSettings: { temperature: 0 },
-  tools: [computeTotalScore, judgePass, computeClassAverage],
+  tools: [computeOperationPlan],
 });
 
 const request = `
-合格点は70点です。以下の3人の成績を集計してください。
-- A: 小テスト 24点、演習 35点、レポート 18点
-- B: 小テスト 18点、演習 28点、レポート 20点
-- C: 小テスト 27点、演習 38点、レポート 25点
+講義アンケートの回答者が 8459217 人いて、そのうち 739184 人ずつの演習グループを 8 個作りました。
+グループに入った参加者を対象に、TAは1人あたり500000人、教室は1室あたり1500000人まで担当できます。
+演習運営に必要な人数計画を作ってください。
 `.trim();
 
-const response = await run(agent, request, { maxTurns: 10 });
+const response = await run(agent, request, { maxTurns: 5 });
 displayResult(response.finalOutput);
 
 function displayResult(finalOutput: unknown) {
-  console.log('\n=== 成績集計 ===\n');
+  console.log('\n=== 演習運営計画 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }

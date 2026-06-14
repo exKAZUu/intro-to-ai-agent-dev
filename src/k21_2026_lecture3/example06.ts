@@ -1,5 +1,5 @@
 /**
- * 検索ツールと計算ツールを組み合わせ、取得した外部情報を処理して比較材料を作る例。
+ * 検索で選んだ演習題材と計算ツールを組み合わせ、90分授業のローテーション計画を作る例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -16,7 +16,7 @@ const tavilySearch = tool({
   parameters: z.object({ query: z.string().min(1) }).strict(),
   strict: true,
   async execute({ query }) {
-    const { results } = await tvly.search(query, { maxResults: 5, includeAnswer: false, includeImages: false });
+    const { results } = await tvly.search(query, { maxResults: 4, includeAnswer: false, includeImages: false });
     return {
       results: results.map((result) => ({
         title: result.title,
@@ -27,36 +27,45 @@ const tavilySearch = tool({
   },
 });
 
-const compareNumbers = tool({
-  name: 'compare_numbers',
-  description: '2つの数値の差分と比率を計算します。',
-  parameters: z.object({ left: z.number(), right: z.number() }).strict(),
+const computeRotationPlan = tool({
+  name: 'compute_rotation_plan',
+  description: '総授業時間、導入時間、まとめ時間、題材数から、各題材に使える演習時間を計算します。',
+  parameters: z
+    .object({
+      totalMinutes: z.number().int(),
+      introMinutes: z.number().int(),
+      wrapUpMinutes: z.number().int(),
+      topicCount: z.number().int(),
+    })
+    .strict(),
   strict: true,
-  execute({ left, right }) {
-    return { difference: left - right, ratio: left / right };
+  execute({ totalMinutes, introMinutes, wrapUpMinutes, topicCount }) {
+    const workshopMinutes = totalMinutes - introMinutes - wrapUpMinutes;
+    return { workshopMinutes, minutesPerTopic: Math.floor(workshopMinutes / topicCount) };
   },
 });
 
 const agent = new Agent({
-  name: 'Framework comparison assistant',
+  name: 'Lecture rotation planner',
   instructions: `
-AIエージェント開発講座で使う比較材料を作ります。
-GitHubスター数などの最新値は tavily_search で調べ、差分と比率は compare_numbers で計算してください。
-数値の出典URLも必ず示してください。
+あなたは第3回講義の90分授業計画を作ります。
+演習題材の確認には tavily_search を使い、時間配分は compute_rotation_plan を使ってください。
+前の例で選んだ題材との接続を保つため、扱う題材は必ず tools、MCP、guardrails の3つにしてください。
+最終回答では、各題材の演習時間、授業の流れ、なぜその題材を選ぶかを日本語でまとめてください。
 `.trim(),
   model: 'gpt-4o-mini',
   modelSettings: { temperature: 0 },
-  tools: [tavilySearch, compareNumbers],
+  tools: [tavilySearch, computeRotationPlan],
 });
 
 const response = await run(
   agent,
-  'OpenAI Agents SDK JavaScript と LangChain JavaScript の GitHub スター数を調べ、差分と比率を講義用にまとめてください。',
+  'Agents SDKの tools、MCP、guardrails を第3回演習題材にし、90分授業で導入10分、まとめ10分の場合のローテーション計画を作ってください。',
   { maxTurns: 8 }
 );
 displayResult(response.finalOutput);
 
 function displayResult(finalOutput: unknown) {
-  console.log('\n=== 比較結果 ===\n');
+  console.log('\n=== 90分授業のローテーション計画 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }

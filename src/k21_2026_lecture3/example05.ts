@@ -1,5 +1,5 @@
 /**
- * Tavily検索ツールを自作し、モデルの記憶ではなく外部情報を根拠に講義項目を整理する例。
+ * Tavily検索ツールを自作し、演習で扱うAgents SDK機能を外部情報に基づいて選ぶ例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -28,11 +28,12 @@ const tavilySearch = tool({
 });
 
 const agent = new Agent({
-  name: 'Lecture research assistant',
+  name: 'Lecture topic researcher',
   instructions: `
 あなたはAIエージェント開発講座の教材調査担当です。
-必ず tavily_search を使い、検索結果に基づいて Agents SDK の主要機能を3つ選び、講義で扱う理由を説明してください。
-最終回答は必ず日本語で書き、最後に参考URLを列挙してください。
+前の例で演習運営計画を作ったので、次は演習グループに割り当てる題材を選びます。
+必ず tavily_search を使い、Agents SDK の主要機能から第3回演習で扱うべき題材を3つ選んでください。
+最終回答は必ず日本語で書き、各題材について「選ぶ理由」と「演習で作るもの」を書き、最後に参考URLを列挙してください。
 `.trim(),
   model: 'gpt-4o-mini',
   modelSettings: { temperature: 0 },
@@ -41,14 +42,12 @@ const agent = new Agent({
 
 const response = await run(
   agent,
-  'OpenAI Agents SDK JavaScript TypeScript の主要機能 tools handoffs guardrails tracing を日本語の講義向けに整理してください。',
-  {
-    maxTurns: 5,
-  }
+  'OpenAI Agents SDK JavaScript TypeScript tools handoffs guardrails tracing MCP hosted tools の第3回演習題材を調べてください。',
+  { maxTurns: 5 }
 );
 displayResult(response.finalOutput);
 
 function displayResult(finalOutput: unknown) {
-  console.log('\n=== 調査結果 ===\n');
+  console.log('\n=== 演習題材の調査結果 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
