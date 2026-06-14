@@ -1,5 +1,5 @@
 /**
- * Hosted code interpreterを使い、前例の授業計画に対する受講者アンケートを自然文で分析する例。
+ * Hosted code interpreterを使い、第3回の試行授業後アンケートを自然文で分析する例。
  */
 
 import { Agent, codeInterpreterTool, run } from '@openai/agents';

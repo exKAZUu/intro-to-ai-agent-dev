@@ -1,5 +1,5 @@
 /**
- * 検索で選んだ演習題材と計算ツールを組み合わせ、90分授業のローテーション計画を作る例。
+ * 検索で確認した演習題材と計算ツールを組み合わせ、90分授業のローテーション計画を作る例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -35,7 +35,7 @@ const computeRotationPlan = tool({
       totalMinutes: z.number().int(),
       introMinutes: z.number().int(),
       wrapUpMinutes: z.number().int(),
-      topicCount: z.number().int(),
+      topicCount: z.number().int().positive(),
     })
     .strict(),
   strict: true,
@@ -50,8 +50,8 @@ const agent = new Agent({
   instructions: `
 あなたは第3回講義の90分授業計画を作ります。
 演習題材の確認には tavily_search を使い、時間配分は compute_rotation_plan を使ってください。
-前の例で選んだ題材との接続を保つため、扱う題材は必ず tools、MCP、guardrails の3つにしてください。
-最終回答では、各題材の演習時間、授業の流れ、なぜその題材を選ぶかを日本語でまとめてください。
+前の例と同じ題材にそろえるため、扱う題材は必ず tools、MCP、guardrails の3つにしてください。
+最終回答では、各題材の演習時間、授業の流れ、なぜその題材を扱うかを日本語でまとめ、参考URLも添えてください。
 `.trim(),
   model: 'gpt-4o-mini',
   modelSettings: { temperature: 0 },

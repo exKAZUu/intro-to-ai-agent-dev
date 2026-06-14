@@ -24,6 +24,7 @@
     "@langchain/openai": "1.4.7",
     "@langchain/tavily": "1.2.0",
     "@openai/agents": "0.11.6",
+    "@openai/codex-sdk": "0.139.0",
     "@tavily/core": "0.7.5",
     "langchain": "1.4.4",
     "openai": "6.42.0",

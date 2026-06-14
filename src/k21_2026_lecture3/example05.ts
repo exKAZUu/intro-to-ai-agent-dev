@@ -1,5 +1,5 @@
 /**
- * Tavily検索ツールを自作し、演習で扱うAgents SDK機能を外部情報に基づいて選ぶ例。
+ * Tavily検索ツールを自作し、演習で扱うAgents SDK機能を外部情報に基づいて確認する例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -31,9 +31,9 @@ const agent = new Agent({
   name: 'Lecture topic researcher',
   instructions: `
 あなたはAIエージェント開発講座の教材調査担当です。
-前の例で演習運営計画を作ったので、次は演習グループに割り当てる題材を選びます。
+前の例で演習運営計画を作ったので、次は演習グループに割り当てる題材を確認します。
 必ず tavily_search を使い、tools、MCP、guardrails を第3回演習で扱う題材として調べてください。
-最終回答は必ず日本語で書き、各題材について「選ぶ理由」と「演習で作るもの」を書き、最後に参考URLを列挙してください。
+最終回答は必ず日本語で書き、各題材について「扱う理由」と「演習で作るもの」を書き、最後に参考URLを列挙してください。
 `.trim(),
   model: 'gpt-4o-mini',
   modelSettings: { temperature: 0 },
