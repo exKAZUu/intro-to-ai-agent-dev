@@ -22,7 +22,7 @@ const LectureImprovementReport = z.object({
   }),
   selectedExamples: z.array(z.string()).length(3),
   risks: z.array(z.string()).min(1),
-  sources: z.array(z.string().url()).min(1),
+  sources: z.array(z.string().describe('根拠にした公式URL')).min(1),
   nextActions: z.array(z.string()).length(3),
 });
 
