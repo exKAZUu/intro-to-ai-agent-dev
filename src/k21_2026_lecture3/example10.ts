@@ -20,10 +20,6 @@ const computeAverage = tool({
 
 const agent = new Agent({
   name: 'Trace workshop improvement analyst',
-  instructions: `
-演習アンケートを分析し、改善コメントを簡潔に返してください。
-満足度平均は必ず compute_average を使ってください。
-`.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAverage],
@@ -36,6 +32,9 @@ await withTrace(traceName, async () => {
   const response = await run(
     agent,
     `
+演習アンケートを分析し、改善コメントを簡潔に返してください。
+満足度平均は必ず compute_average を使ってください。
+
 演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} です。
 難所は ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。

@@ -26,11 +26,6 @@ const calc = tool({
 
 const agent = new Agent({
   name: 'Calculator log analyst',
-  instructions: `
-ある学習サイトの利用ログを集計してください。
-数値計算が必要な場合は必ず calc ツールを使ってください。
-ただし、問題文からどの式を作るかはあなたが判断してください。
-`.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [calc],
@@ -40,6 +35,7 @@ const request = `
 ある学習サイトでは、対象期間の総リクエスト数が 8,459,217 件でした。
 演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
 演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+数値計算が必要な場合は必ず calc ツールを使ってください。どの式を作るかは問題文から判断してください。
 最終行に「演習ページ=..., その他=...」と書いてください。
 `.trim();
 

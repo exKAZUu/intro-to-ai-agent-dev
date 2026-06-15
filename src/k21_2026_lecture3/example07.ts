@@ -37,11 +37,6 @@ const computeSurveyStats = tool({
 
 const agent = new Agent({
   name: 'Structured survey analyst',
-  instructions: `
-演習アンケートを分析し、指定された構造で結果を返してください。
-回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats を使ってください。
-recommendedTopics は tools、structured output、guardrails、MCP の中から選んでください。
-`.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeSurveyStats],
@@ -53,7 +48,19 @@ const survey = {
   requestSummary: surveyRows.map((row) => row.request),
 };
 
-const response = await run(agent, `以下のアンケートデータを分析してください。\n\n${JSON.stringify(survey)}`, { maxTurns: 5 });
+const response = await run(
+  agent,
+  `
+演習アンケートを分析し、指定された構造で結果を返してください。
+回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats を使ってください。
+recommendedTopics は tools、structured output、guardrails、MCP の中から選んでください。
+
+以下のアンケートデータを分析してください。
+
+${JSON.stringify(survey)}
+`.trim(),
+  { maxTurns: 5 }
+);
 
 console.log('\n=== パース済みオブジェクト ===\n');
 console.dir(response.finalOutput, { depth: null });

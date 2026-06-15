@@ -90,14 +90,6 @@ const safeLearningRequest = {
 
 const agent = new Agent({
   name: 'Workshop improvement workflow',
-  instructions: `
-あなたはAIエージェント開発ワークショップの改善レポート作成担当です。
-最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDK JavaScript/TypeScriptドキュメントだけを根拠にしてください。
-アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
-selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、90分ワークショップで扱う3つを選んでください。
-sources には根拠にした公式URLだけを入れてください。Python SDKドキュメントや第三者記事のURLは含めないでください。
-最終出力は指定された構造に従ってください。
-`.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [webSearchTool({ searchContextSize: 'low' }), computeAccessLogSummary, computeSurveyStats],
@@ -107,6 +99,15 @@ sources には根拠にした公式URLだけを入れてください。Python SD
 
 const surveyRows = await readSurveyRows();
 const request = `
+あなたはAIエージェント開発ワークショップの改善レポート作成担当です。
+最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDK JavaScript/TypeScriptドキュメントだけを根拠にしてください。
+アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
+selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、90分ワークショップで扱う3つを選んでください。
+sources には根拠にした公式URLだけを入れてください。
+許可するURLは developers.openai.com、platform.openai.com、openai.github.io/openai-agents-js/ のいずれかに限定してください。
+Python SDKドキュメント、openai.com のニュース記事、第三者記事のURLは含めないでください。
+最終出力は指定された構造に従ってください。
+
 ワークショップの改善レポートを作ってください。
 学習サイト利用ログ:
 - 総リクエスト数: 8,459,217

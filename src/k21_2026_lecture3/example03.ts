@@ -34,11 +34,6 @@ const computeAccessLogSummary = tool({
 
 const agent = new Agent({
   name: 'Structured log analyst',
-  instructions: `
-ある学習サイトの利用ログを集計してください。
-アクセスログ集計では必ず compute_access_log_summary を使い、暗算で答えないでください。
-最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
-`.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAccessLogSummary],
@@ -49,6 +44,8 @@ const request = `
 演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
 キャッシュヒット率は72%でした。
 この学習サイトの利用ログを集計してください。
+必ず compute_access_log_summary を使い、暗算で答えないでください。
+最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
 `.trim();
 
 const response = await run(agent, request, { maxTurns: 5 });
