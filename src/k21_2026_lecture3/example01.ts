@@ -10,7 +10,6 @@ const agent = new Agent({
   name: 'Plain log analyst',
   model: 'gpt-5.4-nano',
   modelSettings: {
-    maxTokens: 60,
     reasoning: { effort: 'none' },
     text: { verbosity: 'low' },
   },
@@ -29,7 +28,7 @@ displayResult(response.finalOutput);
 displayVerification(response.finalOutput);
 
 console.log('\n期待される正解: 演習ページ=5913472, その他=2545745');
-console.log('推論を無効化し、出力上限を小さくしたLLM単体の回答は、別の方法で検算する必要があることを確認します。');
+console.log('推論を無効化したLLM単体の回答は、別の方法で検算する必要があることを確認します。');
 
 function displayResult(finalOutput: unknown) {
   console.log('\n=== 回答 ===\n');
