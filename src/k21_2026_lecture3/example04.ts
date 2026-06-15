@@ -1,58 +1,52 @@
 /**
- * ドメイン特化ツールの入力契約を広げ、同じ講義アンケート人数から演習運営計画まで拡張する例。
+ * Tavily検索ツールを自作し、講義改善に必要なAgents SDK機能を外部情報に基づいて確認する例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
+import { tavily } from '@tavily/core';
 import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
+process.env.TAVILY_API_KEY ||= 'tvly-<ここにTavilyのAPIキーを貼り付けてください>';
 
-const computeOperationPlan = tool({
-  name: 'compute_operation_plan',
-  description: '全体人数、グループ人数、グループ数、TA担当人数、教室容量から演習運営計画を計算します。',
-  parameters: z
-    .object({
-      total: z.number().int().describe('全体人数'),
-      groupSize: z.number().int().describe('1グループあたりの人数'),
-      groupCount: z.number().int().describe('実際に作ったグループ数'),
-      studentsPerTa: z.number().int().describe('TA1人あたりが担当できる人数'),
-      roomCapacity: z.number().int().describe('1教室あたりの収容人数'),
-    })
-    .strict(),
+const tvly = tavily();
+const tavilySearch = tool({
+  name: 'tavily_search',
+  description: '最新のウェブ検索結果を取得します。',
+  parameters: z.object({ query: z.string().min(1) }).strict(),
   strict: true,
-  execute({ total, groupSize, groupCount, studentsPerTa, roomCapacity }) {
-    const participants = groupSize * groupCount;
+  async execute({ query }) {
+    const { results } = await tvly.search(query, { maxResults: 4, includeAnswer: false, includeImages: false });
     return {
-      participants,
-      remaining: total - participants,
-      requiredTas: Math.ceil(participants / studentsPerTa),
-      requiredRooms: Math.ceil(participants / roomCapacity),
+      results: results.map((result) => ({
+        title: result.title,
+        url: result.url,
+        content: result.content,
+      })),
     };
   },
 });
 
 const agent = new Agent({
-  name: 'Lecture operation planner',
+  name: 'Lecture topic researcher with Tavily',
   instructions: `
-講義演習の運営計画を作ります。
-人数、余り、TA数、教室数は必ず compute_operation_plan を使い、暗算で答えないでください。
-最終回答では、参加人数、余り、必要TA数、必要教室数をまとめてください。
+あなたはAIエージェント開発講座の教材調査担当です。
+必ず tavily_search を使い、OpenAI Agents SDKの tools、structured output、guardrails を第3回講義の改善題材として調べてください。
+最終回答は日本語で、各題材について「講義で扱う理由」と「演習で作るもの」を1文ずつ書き、最後に参考URLを列挙してください。
 `.trim(),
-  model: 'gpt-4o-mini',
-  modelSettings: { temperature: 0 },
-  tools: [computeOperationPlan],
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [tavilySearch],
 });
 
-const request = `
-講義アンケートの回答者が 8459217 人いて、そのうち 739184 人ずつの演習グループを 8 個作りました。
-グループに入った参加者を対象に、TAは1人あたり500000人、教室は1室あたり1500000人まで担当できます。
-演習運営に必要な人数計画を作ってください。
-`.trim();
-
-const response = await run(agent, request, { maxTurns: 5 });
+const response = await run(
+  agent,
+  'OpenAI Agents SDK JavaScript TypeScript の tools、structured output、guardrails を第3回講義の改善題材として調べてください。',
+  { maxTurns: 5 }
+);
 displayResult(response.finalOutput);
 
 function displayResult(finalOutput: unknown) {
-  console.log('\n=== 演習運営計画 ===\n');
+  console.log('\n=== Tavilyによる題材調査 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }

@@ -13,7 +13,7 @@ const thread = codex.startThread({
 });
 
 const { events } = await thread.runStreamed(`
-src/k21_2026_lecture3/example01.ts から example04.ts までを確認し、改善の流れを1段落で説明してください。
+src/k21_2026_lecture3/example01.ts から example03.ts までを確認し、アクセスログ集計を改善していく流れを1段落で説明してください。
 ファイルは変更しないでください。
 `.trim());
 

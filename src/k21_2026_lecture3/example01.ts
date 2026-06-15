@@ -1,5 +1,5 @@
 /**
- * LLMだけで条件付きの人数計算を行わせ、読み違いや計算ミスが起きうることを観察する例。
+ * LLMだけで大きなアクセスログ集計を行わせ、検算なしでは信頼しにくいことを観察する例。
  */
 
 import { Agent, run } from '@openai/agents';
@@ -7,20 +7,27 @@ import { Agent, run } from '@openai/agents';
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
 const agent = new Agent({
-  name: 'Plain lecture assistant',
-  instructions: '講義運営に関する質問に日本語で簡潔に答えてください。計算過程も短く示してください。',
-  model: 'gpt-4o-mini',
-  modelSettings: { temperature: 0 },
+  name: 'Plain log analyst',
+  instructions: `
+第3回講義の教材サイト利用ログについて、日本語で簡潔に答えてください。
+計算過程も短く示してください。ただし外部ツールは使えません。
+`.trim(),
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
 
-const question =
-  '講義アンケートの回答者が 8459217 人いて、そのうち 739184 人ずつのグループを 8 個作りました。グループに入った人数の合計と、余った人数を正確に計算してください。最終行に「合計=..., 余り=...」と書いてください。';
+const request = `
+第3回講義の教材サイトでは、対象期間の総リクエスト数が 8,459,217 件でした。
+演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
+演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+最終行に「演習ページ=..., その他=...」と書いてください。
+`.trim();
 
-const response = await run(agent, question);
+const response = await run(agent, request);
 displayResult(response.finalOutput);
 
-console.log('\n期待される正解: 合計=5913472, 余り=2545745');
-console.log('この例では、LLMだけに任せると「8個」という条件を読み落として誤る場合があります。');
+console.log('\n期待される正解: 演習ページ=5913472, その他=2545745');
+console.log('この例では、LLMだけの数値回答は必ず別の方法で検算する必要があることを確認します。');
 
 function displayResult(finalOutput: unknown) {
   console.log('\n=== 回答 ===\n');

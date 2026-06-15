@@ -13,7 +13,7 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-src/k21_2026_lecture3/example05.ts から example07.ts をレビューし、前後の接続性に問題がないか確認してください。
+src/k21_2026_lecture3/example04.ts から example07.ts をレビューし、検索からアンケート分析への接続性に問題がないか確認してください。
 修正は提案だけにして、ファイルは絶対に変更しないでください。
 `.trim());
 

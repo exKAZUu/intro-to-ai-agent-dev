@@ -1,5 +1,5 @@
 /**
- * 汎用計算ツールを渡し、LLM単体の計算より安定して正確な数値を得る例。
+ * 汎用計算ツールを渡し、アクセスログ集計の数値計算を安定させる例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -25,26 +25,29 @@ const calc = tool({
 });
 
 const agent = new Agent({
-  name: 'Generic calculator assistant',
+  name: 'Calculator log analyst',
   instructions: `
-講義運営に関する計算に答えてください。
-数値計算が必要な場合は calc ツールを使ってください。
+第3回講義の教材サイト利用ログを集計してください。
+数値計算が必要な場合は必ず calc ツールを使ってください。
 ただし、問題文からどの式を作るかはあなたが判断してください。
 `.trim(),
-  model: 'gpt-4o-mini',
-  modelSettings: { temperature: 0 },
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [calc],
 });
 
-const question =
-  '講義アンケートの回答者が 8459217 人いて、そのうち 739184 人ずつのグループを 8 個作りました。グループに入った人数の合計と、余った人数を正確に計算してください。最終行に「合計=..., 余り=...」と書いてください。';
+const request = `
+第3回講義の教材サイトでは、対象期間の総リクエスト数が 8,459,217 件でした。
+演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
+演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+最終行に「演習ページ=..., その他=...」と書いてください。
+`.trim();
 
-const response = await run(agent, question, { maxTurns: 5 });
+const response = await run(agent, request, { maxTurns: 5 });
 displayToolCalls(response.newItems);
 displayResult(response.finalOutput);
 
-console.log('\n期待される正解: 合計=5913472, 余り=2545745');
-console.log('汎用 calc により計算は安定します。次の例では、さらに入力契約をドメインに合わせて誤用しにくくします。');
+console.log('\n期待される正解: 演習ページ=5913472, その他=2545745');
 
 function displayToolCalls(items: { toJSON(): unknown }[]) {
   console.log('\n=== ツール呼び出し ===\n');

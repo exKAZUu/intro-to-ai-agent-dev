@@ -1,9 +1,10 @@
 /**
- * Handoffを使い、アンケート分析と授業改善案作成を専門エージェントに分ける例。
+ * Tracingを使い、ツール利用を含む講義改善フローを1つの処理として記録する例。
  */
 
-import { Agent, run, tool } from '@openai/agents';
+import { Agent, run, tool, withTrace } from '@openai/agents';
 import { z } from 'zod';
+import { readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -17,37 +18,31 @@ const computeAverage = tool({
   },
 });
 
-const analysisAgent = new Agent({
-  name: 'Survey analysis agent',
-  handoffDescription: '第3回講義アンケートの数値集計と難所抽出を担当します。',
-  instructions: '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。',
-  model: 'gpt-4o-mini',
+const agent = new Agent({
+  name: 'Trace lecture improvement analyst',
+  instructions: `
+第3回講義のアンケートを分析し、改善コメントを簡潔に返してください。
+満足度平均は必ず compute_average を使ってください。
+`.trim(),
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAverage],
 });
 
-const planningAgent = new Agent({
-  name: 'Improvement planning agent',
-  handoffDescription: 'アンケート結果をもとに、次回の授業改善案を作成します。',
-  instructions: '第3回講義の改善案を、90分授業の中で実行できる具体策としてまとめてください。',
-  model: 'gpt-4o-mini',
-});
+const surveyRows = await readSurveyRows();
 
-const triageAgent = Agent.create({
-  name: 'Lecture improvement triage',
-  instructions: `
-ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
-依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
+await withTrace('k21_2026_lecture3_improvement_trace', async () => {
+  const response = await run(
+    agent,
+    `
+第3回アンケートは20件です。
+満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} です。
+難所は ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
+ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、自由記述では実用例、後続処理、失敗例、接続手順への要望が多いです。
+改善コメントを作ってください。
 `.trim(),
-  model: 'gpt-4o-mini',
-  handoffs: [analysisAgent, planningAgent],
+    { maxTurns: 5 }
+  );
+  console.log('\n=== Trace対象の講義改善フロー ===\n');
+  console.log(response.finalOutput);
 });
-
-const request = `
-第3回アンケートの満足度は 5, 3, 4, 2, 5 でした。
-難しかったトピックは tools, MCP, MCP, guardrails, tools です。
-この結果を分析し、次回の改善案を作ってください。
-`.trim();
-
-const response = await run(triageAgent, request, { maxTurns: 8 });
-console.log('\n=== Handoffによる改善案 ===\n');
-console.log(response.finalOutput);

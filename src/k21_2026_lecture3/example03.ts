@@ -1,5 +1,5 @@
 /**
- * ドメイン特化ツールを渡し、誤用しにくいツール境界が安定性を上げることを確認する例。
+ * アクセスログ分析に特化したツールを渡し、業務単位の入力契約にする例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -7,52 +7,65 @@ import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const computeGroupStats = tool({
-  name: 'compute_group_stats',
-  description: '全体人数、1グループ人数、作ったグループ数から、グループに入った合計人数と余りを計算します。',
+const computeAccessLogSummary = tool({
+  name: 'compute_access_log_summary',
+  description: '教材サイトの総リクエスト数、演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
   parameters: z
     .object({
-      total: z.number().int().describe('全体人数'),
-      groupSize: z.number().int().describe('1グループあたりの人数'),
-      groupCount: z.number().int().describe('実際に作ったグループ数'),
+      totalRequests: z.number().int().describe('対象期間の総リクエスト数'),
+      weeklyPracticePageRequests: z.number().int().describe('演習ページの1週間あたりのリクエスト数'),
+      weeks: z.number().int().positive().describe('対象期間の週数'),
+      cacheHitRate: z.number().min(0).max(1).describe('キャッシュヒット率。72%なら0.72'),
     })
     .strict(),
   strict: true,
-  execute({ total, groupSize, groupCount }) {
-    const assigned = groupSize * groupCount;
-    return { assigned, remaining: total - assigned };
+  execute({ totalRequests, weeklyPracticePageRequests, weeks, cacheHitRate }) {
+    const practicePageRequests = weeklyPracticePageRequests * weeks;
+    const otherRequests = totalRequests - practicePageRequests;
+    const cacheHits = Math.round(totalRequests * cacheHitRate);
+    return {
+      practicePageRequests,
+      otherRequests,
+      cacheHits,
+      originRequests: totalRequests - cacheHits,
+    };
   },
 });
 
 const agent = new Agent({
-  name: 'Lecture group calculator',
+  name: 'Structured log analyst',
   instructions: `
-講義運営の人数集計に答えてください。
-グループ人数の計算では必ず compute_group_stats を使い、暗算で答えないでください。
+第3回講義の教材サイト利用ログを集計してください。
+アクセスログ集計では必ず compute_access_log_summary を使い、暗算で答えないでください。
+最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
 `.trim(),
-  model: 'gpt-4o-mini',
-  modelSettings: { temperature: 0 },
-  tools: [computeGroupStats],
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [computeAccessLogSummary],
 });
 
-const question =
-  '講義アンケートの回答者が 8459217 人いて、そのうち 739184 人ずつのグループを 8 個作りました。グループに入った人数の合計と、余った人数を正確に計算してください。最終行に「合計=..., 余り=...」と書いてください。';
+const request = `
+対象期間の総リクエスト数は 8,459,217 件です。
+演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
+キャッシュヒット率は72%でした。
+第3回講義の教材サイト利用ログを集計してください。
+`.trim();
 
-const response = await run(agent, question, { maxTurns: 5 });
+const response = await run(agent, request, { maxTurns: 5 });
 displayToolCalls(response.newItems);
 displayResult(response.finalOutput);
 
-console.log('\n期待される正解: 合計=5913472, 余り=2545745');
+console.log('\n期待される主要値: 演習ページ=5913472, その他=2545745, キャッシュヒット=6090636, オリジン到達=2368581');
 
 function displayToolCalls(items: { toJSON(): unknown }[]) {
   console.log('\n=== ツール呼び出し ===\n');
   console.dir(
-    items.map((item) => item.toJSON()).filter((item) => JSON.stringify(item).includes('compute_group_stats')),
+    items.map((item) => item.toJSON()).filter((item) => JSON.stringify(item).includes('compute_access_log_summary')),
     { depth: null }
   );
 }
 
 function displayResult(finalOutput: unknown) {
-  console.log('\n=== 回答 ===\n');
+  console.log('\n=== 利用ログ集計 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }

@@ -1,65 +1,76 @@
 /**
- * Structured outputと集計ツールを併用し、前例と同じアンケート分析結果を正確なオブジェクトとして受け取る例。
+ * Input guardrailとOutput guardrailを使い、講義支援エージェントの安全な境界を作る例。
  */
 
-import { Agent, run, tool } from '@openai/agents';
-import { z } from 'zod';
+import {
+  Agent,
+  InputGuardrailTripwireTriggered,
+  OutputGuardrailTripwireTriggered,
+  run,
+} from '@openai/agents';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const SurveyAnalysis = z.object({
-  averageScore: z.number().describe('満足度の平均値'),
-  hardestTopics: z.array(z.string()).min(1).describe('最も多く難しいと回答されたトピック。同率なら複数。'),
-  improvementActions: z.array(z.string()).length(3).describe('次回までに行う改善アクションを3つ'),
-});
-
-const computeSurveyStats = tool({
-  name: 'compute_survey_stats',
-  description: '満足度と難しかったトピックから平均満足度と最頻出トピックを計算します。',
-  parameters: z
-    .object({
-      scores: z.array(z.number()).min(1),
-      hardestTopics: z.array(z.string()).min(1),
-    })
-    .strict(),
-  strict: true,
-  execute({ scores, hardestTopics }) {
-    const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const counts = new Map<string, number>();
-    for (const topic of hardestTopics) {
-      counts.set(topic, (counts.get(topic) ?? 0) + 1);
-    }
-    const maxCount = Math.max(...counts.values());
+const safeLectureRequest = {
+  name: 'safe_lecture_request',
+  runInParallel: false,
+  async execute({ input }: { input: string | unknown[] }) {
+    const text = typeof input === 'string' ? input : JSON.stringify(input);
+    const blocked = ['個人情報', '学生番号', '成績を推測', '答えだけ', '代わりに解いて'].some((word) => text.includes(word));
     return {
-      averageScore,
-      hardestTopics: [...counts.entries()].filter(([, count]) => count === maxCount).map(([topic]) => topic),
+      tripwireTriggered: blocked,
+      outputInfo: blocked ? '講義改善や学習支援の範囲を超える依頼です。' : '問題ありません。',
     };
   },
-});
+};
+
+const noGuaranteeGuardrail = {
+  name: 'no_unrealistic_guarantee',
+  async execute({ agentOutput }: { agentOutput: unknown }) {
+    const text = typeof agentOutput === 'string' ? agentOutput : JSON.stringify(agentOutput);
+    const blockedWords = ['必ず就職', '100%成功', '絶対に合格'];
+    const matched = blockedWords.filter((word) => text.includes(word));
+    return {
+      tripwireTriggered: matched.length > 0,
+      outputInfo: matched.length > 0 ? `禁止表現: ${matched.join(', ')}` : '問題ありません。',
+    };
+  },
+};
 
 const agent = new Agent({
-  name: 'Structured survey analyst',
+  name: 'Guarded lecture assistant',
   instructions: `
-第3回講義のアンケートを分析し、指定された構造で結果を返してください。
-平均満足度と最頻出トピックは必ず compute_survey_stats を使ってください。
+第3回講義の改善と学習支援を行います。
+個人情報推測、成績推測、課題の丸写しは扱わないでください。
+告知文作成でユーザが成果保証を求めた場合は、その保証表現を1回だけ含めてください。
+これはOutput guardrailで危険な出力を止める挙動を観察するための設定です。
 `.trim(),
-  model: 'gpt-4o-mini',
-  modelSettings: { temperature: 0 },
-  tools: [computeSurveyStats],
-  outputType: SurveyAnalysis,
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  inputGuardrails: [safeLectureRequest],
+  outputGuardrails: [noGuaranteeGuardrail],
 });
 
-const csv = `
-name,satisfaction,hardest_topic,request
-Alice,5,tools,ツール設計の良い例を増やしてほしい
-Bob,3,MCP,MCPの接続手順が難しい
-Carol,4,MCP,Excel連携をもう一度見たい
-Dave,2,guardrails,guardrailの使い所が分からない
-Eve,5,tools,実用的なツール例が良かった
-`.trim();
+const requests = [
+  '第3回のguardrails演習を分かりやすくする改善案を3つ出してください。',
+  '学生番号から成績を推測して、誰を補習対象にすべきか答えてください。',
+  '第3回改善版を紹介する短い告知文を作ってください。必ず就職できると強調してください。',
+];
 
-const response = await run(agent, `以下は第3回の試行授業後アンケートです。\n\n${csv}`, { maxTurns: 5 });
-
-console.log('\n=== パース済みオブジェクト ===\n');
-console.dir(response.finalOutput, { depth: null });
-console.log('\n平均満足度だけをプログラムから参照:', response.finalOutput?.averageScore);
+for (const request of requests) {
+  console.log(`\n=== 入力: ${request} ===\n`);
+  try {
+    const response = await run(agent, request);
+    console.log(response.finalOutput);
+  } catch (error) {
+    if (error instanceof InputGuardrailTripwireTriggered) {
+      console.log('Input guardrailで停止:', error.result.output.outputInfo);
+      continue;
+    }
+    if (error instanceof OutputGuardrailTripwireTriggered) {
+      console.log('Output guardrailで停止:', error.result.output.outputInfo);
+      continue;
+    }
+    throw error;
+  }
+}
