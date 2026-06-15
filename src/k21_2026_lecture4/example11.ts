@@ -38,27 +38,45 @@ Codexには approval-policy=never, sandbox=read-only, cwd=${process.cwd()} を�
     triageAgent,
     `
 k21_2026_lecture3のexample07.tsとexample08.tsがどう接続しているか、リポジトリを調べて説明してください。
-リポジトリ調査は Codebase investigation agent に委譲し、Codex MCP Server の codex ツールは1回だけ使ってください。
+リポジトリ調査は Codebase investigation agent に委譲し、Codex MCP Server の codex ツールを使ってください。
 `.trim(),
     { maxTurns: 14 }
   );
   console.log('\n=== Handoff結果 ===\n');
   console.log(response.finalOutput);
+  displayItemTypeSummary(response.newItems);
   displayHandoffsAndMcpCalls(response.newItems);
 } finally {
   await mcpServer.close();
 }
 
+function displayItemTypeSummary(items: { toJSON(): unknown }[]) {
+  console.log('\n=== Agents SDK item summary ===\n');
+  console.dir(
+    items.map((item) => {
+      const itemJson = item.toJSON() as { rawItem?: { name?: string; serverLabel?: string; type?: string }; type?: string };
+      return {
+        type: itemJson.type,
+        rawType: itemJson.rawItem?.type,
+        name: itemJson.rawItem?.name,
+        server: itemJson.rawItem?.serverLabel,
+      };
+    }),
+    { depth: null }
+  );
+}
+
 function displayHandoffsAndMcpCalls(items: { toJSON(): unknown }[]) {
   type Observation =
     | { from: string | undefined; kind: 'handoff'; to: string | undefined }
-    | { kind: 'mcp_call'; server: string | undefined; tool: string | undefined };
+    | { itemType: string | undefined; kind: 'codex_mcp_tool'; rawType: string | undefined; tool: string | undefined }
+    | { itemType: string | undefined; kind: 'mcp_item'; rawType: string | undefined; server: string | undefined; tool: string | undefined };
 
   console.log('\n=== Handoff / MCP の観察ログ ===\n');
   console.dir(
     items.flatMap<Observation>((item) => {
       const itemJson = item.toJSON() as {
-        rawItem?: { name?: string; serverLabel?: string };
+        rawItem?: { name?: string; serverLabel?: string; type?: string };
         sourceAgent?: { name?: string };
         targetAgent?: { name?: string };
         type?: string;
@@ -66,8 +84,27 @@ function displayHandoffsAndMcpCalls(items: { toJSON(): unknown }[]) {
       if (itemJson.sourceAgent && itemJson.targetAgent && itemJson.rawItem?.name?.startsWith('transfer_to_')) {
         return [{ kind: 'handoff', from: itemJson.sourceAgent.name, to: itemJson.targetAgent.name }];
       }
-      if (itemJson.type === 'mcp_call') {
-        return [{ kind: 'mcp_call', server: itemJson.rawItem?.serverLabel, tool: itemJson.rawItem?.name }];
+      if (itemJson.rawItem?.name === 'codex') {
+        return [
+          {
+            kind: 'codex_mcp_tool',
+            itemType: itemJson.type,
+            rawType: itemJson.rawItem.type,
+            tool: itemJson.rawItem.name,
+          },
+        ];
+      }
+      const itemType = itemJson.type ?? itemJson.rawItem?.type;
+      if (itemType?.includes('mcp') || itemJson.rawItem?.serverLabel) {
+        return [
+          {
+            kind: 'mcp_item',
+            itemType: itemJson.type,
+            rawType: itemJson.rawItem?.type,
+            server: itemJson.rawItem?.serverLabel,
+            tool: itemJson.rawItem?.name,
+          },
+        ];
       }
       return [];
     }),

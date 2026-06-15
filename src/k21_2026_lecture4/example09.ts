@@ -2,14 +2,17 @@
  * Codexにバグ修正と検証コマンド実行を任せ、書く・試す・直す開発ループを体験する例。
  */
 
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
 import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
 
+const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-'));
 const scriptPath = join(workspace, 'survey.js');
 await writeFile(
@@ -20,6 +23,7 @@ const average = scores.reduce((sum, score) => sum + score, 0);
 console.log("average=" + average);
 `.trim()
 );
+await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex();
 const thread = codex.startThread({

@@ -2,15 +2,19 @@
  * Codexのコード実行結果をoutputSchemaで構造化し、lecture3のstructured output相当を実現する例。
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
 import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary, parseJson } from './helpers.js';
 
+const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-'));
+const scriptPath = join(workspace, 'analyze-survey.js');
 await writeFile(
   join(workspace, 'survey.csv'),
   `
@@ -22,6 +26,7 @@ Dave,録画,2,guardrails,未完了,失敗例があると理解しやすい
 Eve,対面,5,tools,完了,業務に近い題材がよい
 `.trim()
 );
+await execFileAsync('git', ['init'], { cwd: workspace });
 
 const SurveySchema = {
   type: 'object',
@@ -46,13 +51,16 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-survey.csv をスクリプトで分析し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
+analyze-survey.js を作成し、survey.csv を読み込んで分析してください。
+node analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
 平均満足度とハンズオン完了率は、必ず作成したスクリプトの計算結果を使ってください。
 `.trim(),
   { outputSchema: SurveySchema }
 );
 
 displayFinalResponse('JSON文字列', turn.finalResponse);
+console.log('\n=== 作成されたanalyze-survey.js ===\n');
+console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
