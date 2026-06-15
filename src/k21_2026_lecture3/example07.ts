@@ -4,7 +4,7 @@
 
 import { Agent, run, tool } from '@openai/agents';
 import { z } from 'zod';
-import { readSurveyRows } from './survey-data.js';
+import { computeSurveyStats as computeExpectedSurveyStats, readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -71,3 +71,12 @@ console.log('\n=== パース済みオブジェクト ===\n');
 console.dir(response.finalOutput, { depth: null });
 console.log('\n平均満足度だけをプログラムから参照:', response.finalOutput?.averageScore);
 console.log('ハンズオン完了率だけをプログラムから参照:', response.finalOutput?.handsOnCompletionRate);
+displayExpectedStats(computeExpectedSurveyStats(surveyRows));
+
+function displayExpectedStats(stats: ReturnType<typeof computeExpectedSurveyStats>) {
+  console.log('\n=== プログラム側で検算した主要値 ===\n');
+  console.log(`回答者数: ${stats.respondentCount}`);
+  console.log(`平均満足度: ${stats.averageSatisfaction}`);
+  console.log(`ハンズオン完了率: ${stats.handsOnCompletionRate}`);
+  console.log(`最頻出トピック: ${stats.hardestTopics.join(', ')}`);
+}

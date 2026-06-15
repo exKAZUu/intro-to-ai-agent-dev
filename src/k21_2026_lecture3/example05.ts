@@ -11,17 +11,22 @@ const agent = new Agent({
   instructions: `
 あなたはAIエージェント開発講座の教材調査担当です。
 この例では web_search を使って、前例のTavily検索ツールをHosted toolに置き換えます。
+OpenAI公式ドキュメントまたは公式Agents SDKドキュメントだけを根拠にしてください。
 第3回講義の改善題材は tools、structured output、guardrails の3つにそろえてください。
-各題材について「何を解決するか」と「演習で見せるべき理由」を1文ずつ書いてください。
+各題材について「何を解決するか」と「演習で見せるべき理由」を1文ずつ書き、最後に参考URLを列挙してください。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [webSearchTool({ searchContextSize: 'low' })],
 });
 
-const response = await run(agent, 'OpenAI Agents SDK の tools、structured output、guardrails を講義用に整理してください。', {
-  maxTurns: 5,
-});
+const response = await run(
+  agent,
+  'OpenAI Agents SDK の tools、structured output、guardrails を公式ドキュメントに基づいて講義用に整理してください。',
+  {
+    maxTurns: 5,
+  }
+);
 displayResult(response.finalOutput);
 
 function displayResult(finalOutput: unknown) {

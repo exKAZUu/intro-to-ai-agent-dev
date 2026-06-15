@@ -22,6 +22,7 @@ const LectureImprovementReport = z.object({
   }),
   selectedExamples: z.array(z.string()).length(3),
   risks: z.array(z.string()).min(1),
+  sources: z.array(z.string().url()).min(1),
   nextActions: z.array(z.string()).length(3),
 });
 
@@ -91,8 +92,10 @@ const agent = new Agent({
   name: 'Lecture improvement workflow',
   instructions: `
 あなたはAIエージェント開発講座の改善レポート作成担当です。
-最新情報は web_search で確認し、アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
+最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDKドキュメントだけを根拠にしてください。
+アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
 selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、次回90分授業で扱う3つを選んでください。
+sources には根拠にした公式URLだけを入れてください。
 最終出力は指定された構造に従ってください。
 `.trim(),
   model: 'gpt-5.4-nano',
@@ -118,7 +121,7 @@ const request = `
 - 参加形態: ${surveyRows.map((row) => row.attendanceType).join(', ')}
 - 自由記述の主な要望: toolsの実用例、structured outputの後続処理、guardrailsの失敗例、MCPの接続手順
 
-OpenAI Agents SDK の現在の主要機能も確認し、次回アクションを3つ出してください。
+OpenAI Agents SDK の現在の主要機能も公式ドキュメントで確認し、次回アクションを3つ出してください。
 `.trim();
 
 await withTrace('k21_2026_lecture3_integrated_workflow', async () => {

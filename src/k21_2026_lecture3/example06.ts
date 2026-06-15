@@ -3,7 +3,7 @@
  */
 
 import { Agent, codeInterpreterTool, run } from '@openai/agents';
-import { readSurveyCsv } from './survey-data.js';
+import { computeSurveyStats, readSurveyCsv, readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -22,8 +22,17 @@ const agent = new Agent({
 const csv = await readSurveyCsv();
 const response = await run(agent, `以下は第3回講義の試行実施後アンケートです。\n\n${csv}`, { maxTurns: 6 });
 displayResult(response.finalOutput);
+displayExpectedStats(computeSurveyStats(await readSurveyRows()));
 
 function displayResult(finalOutput: unknown) {
   console.log('\n=== アンケート分析 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
+
+function displayExpectedStats(stats: ReturnType<typeof computeSurveyStats>) {
+  console.log('\n=== プログラム側で検算した主要値 ===\n');
+  console.log(`回答者数: ${stats.respondentCount}`);
+  console.log(`平均満足度: ${stats.averageSatisfaction}`);
+  console.log(`ハンズオン完了率: ${stats.handsOnCompletionRate}`);
+  console.log(`最頻出トピック: ${stats.hardestTopics.join(', ')}`);
 }
