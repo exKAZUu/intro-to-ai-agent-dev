@@ -57,12 +57,10 @@ const response = await run(
   agent,
   `
 あなたはAIエージェント開発ワークショップの教材調査担当です。
-必ず tavily_search を使い、OpenAI公式ドキュメントまたは公式Agents SDK JavaScript/TypeScriptドキュメントだけを根拠にしてください。
-OpenAI Agents SDKの tools、structured output、guardrails を、ワークショップの改善題材として調べてください。
-演習で作るものは、学習サイト利用ログ、参加者アンケート、改善計画のいずれかを扱うものに限定してください。
-最終回答は日本語で、各題材について「教材で扱う理由」と「演習で作るもの」を1文ずつ書き、最後に参考URLを列挙してください。
-参考URLには Python SDK ドキュメントや第三者記事を含めないでください。
-参考URLの列挙で回答を締め、追加質問や次の作業提案は書かないでください。
+必ず tavily_search を使い、OpenAI公式ドキュメントまたはAgents SDK JavaScript/TypeScript公式ドキュメントだけを根拠にしてください。
+tools、structured output、guardrails を、学習サイト利用ログ、参加者アンケート、改善計画のいずれかを扱う演習題材として整理してください。
+各題材について「教材で扱う理由」と「演習で作るもの」を1文ずつ書き、最後に公式参考URLだけを列挙して締めてください。
+Python SDKドキュメント、第三者記事、追加質問、次の作業提案は含めないでください。
 `.trim(),
   { maxTurns: 5 }
 );

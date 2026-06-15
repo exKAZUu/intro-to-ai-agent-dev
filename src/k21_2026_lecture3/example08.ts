@@ -51,13 +51,15 @@ const triageAgent = Agent.create({
 
 const surveyRows = await readSurveyRows();
 const request = `
+次のAIエージェント開発ワークショップ結果を専門エージェントへ委譲して分析し、90分内で実行できる改善案で締めてください。
+満足度平均は compute_average を使ってください。追加質問や次の作業提案は書かないでください。
+
 演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} でした。
 難しかったトピックは ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
 ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、オンライン参加者と録画視聴者に多めでした。
 自由記述では、toolsは実用例、structured outputは後続処理、guardrailsは失敗例、MCPは接続手順への要望が目立ちました。
 学習サイトでは演習ページのアクセスが多く、guardrailsの滞在時間が短めでした。
-この結果を分析し、改善案を作ってください。
 `.trim();
 
 const response = await run(triageAgent, request, { maxTurns: 8 });

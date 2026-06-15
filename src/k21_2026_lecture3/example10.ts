@@ -32,14 +32,11 @@ await withTrace(traceName, async () => {
   const response = await run(
     agent,
     `
-演習アンケートを分析し、改善コメントを簡潔に返してください。
+次の演習アンケートを分析し、改善コメントを簡潔に返してください。
 満足度平均は必ず compute_average を使ってください。
-
-演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} です。
 難所は ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
 ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、自由記述では実用例、後続処理、失敗例、接続手順への要望が多いです。
-改善コメントを作ってください。
 `.trim(),
     { maxTurns: 5 }
   );

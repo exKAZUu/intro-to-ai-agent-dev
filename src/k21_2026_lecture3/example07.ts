@@ -51,11 +51,9 @@ const survey = {
 const response = await run(
   agent,
   `
-演習アンケートを分析し、指定された構造で結果を返してください。
-回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats を使ってください。
-recommendedTopics は tools、structured output、guardrails、MCP の中から選んでください。
-
-以下のアンケートデータを分析してください。
+次の演習アンケートを分析し、指定された構造で返してください。
+回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats で計算してください。
+recommendedTopics は tools、structured output、guardrails、MCP から3つ選んでください。
 
 ${JSON.stringify(survey)}
 `.trim(),

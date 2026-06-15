@@ -44,6 +44,7 @@ const agent = new Agent({
 個人情報推測、個人評価推測、課題の丸写しは扱わないでください。
 告知文作成でユーザが成果保証を求めた場合は、その保証表現を1回だけ含めてください。
 このプログラムではOutput guardrailで危険な出力を止める挙動を観察します。
+追加質問や次の作業提案は書かないでください。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
