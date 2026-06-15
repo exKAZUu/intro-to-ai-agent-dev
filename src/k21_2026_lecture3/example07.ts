@@ -2,9 +2,9 @@
  * Structured outputと集計ツールを併用し、アンケート分析結果を正確なオブジェクトとして受け取る例。
  */
 
+import { readFile } from 'node:fs/promises';
 import { Agent, run, tool } from '@openai/agents';
 import { z } from 'zod';
-import { computeSurveyStats as computeExpectedSurveyStats, readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -25,7 +25,7 @@ const computeSurveyStats = tool({
   parameters: z.object({}).strict(),
   strict: true,
   execute() {
-    const stats = computeExpectedSurveyStats(surveyRows);
+    const stats = computeSurveyStatsFromRows(surveyRows);
     return {
       respondentCount: stats.respondentCount,
       averageScore: stats.averageSatisfaction,
@@ -74,4 +74,31 @@ function displayComparison(finalOutput: unknown) {
       ? 'あり: outputType により、averageScore や handsOnCompletionRate を型付きオブジェクトのプロパティとして参照できます。'
       : 'あり: outputType を指定しているため、本来は型付きオブジェクトとして参照できます。'
   );
+}
+
+async function readSurveyRows() {
+  const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');
+  return lines.map((line) => {
+    const [, , , satisfaction, hardestTopic, handsOnCompleted, , request] = line.split(',');
+    return {
+      handsOnCompleted: handsOnCompleted === '完了',
+      hardestTopic: hardestTopic ?? '',
+      request: request ?? '',
+      satisfaction: Number(satisfaction),
+    };
+  });
+}
+
+function computeSurveyStatsFromRows(rows: Awaited<ReturnType<typeof readSurveyRows>>) {
+  const topicCounts = new Map<string, number>();
+  for (const row of rows) {
+    topicCounts.set(row.hardestTopic, (topicCounts.get(row.hardestTopic) ?? 0) + 1);
+  }
+  const maxTopicCount = Math.max(...topicCounts.values());
+  return {
+    averageSatisfaction: rows.reduce((sum, row) => sum + row.satisfaction, 0) / rows.length,
+    handsOnCompletionRate: rows.filter((row) => row.handsOnCompleted).length / rows.length,
+    hardestTopics: [...topicCounts.entries()].filter(([, count]) => count === maxTopicCount).map(([topic]) => topic),
+    respondentCount: rows.length,
+  };
 }

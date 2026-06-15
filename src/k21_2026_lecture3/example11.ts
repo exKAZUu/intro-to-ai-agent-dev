@@ -2,10 +2,9 @@
  * Excel MCP Serverを使い、アンケートデータをExcelファイルとして作成・分析する例。
  */
 
-import { copyFile } from 'node:fs/promises';
+import { copyFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Agent, MCPServerStdio, run } from '@openai/agents';
-import { readSurveyCsv } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -62,4 +61,8 @@ async function createSurveyWorkbook() {
   const workbookPath = fileURLToPath(new URL(`./survey-scores-${timestamp}.xlsx`, import.meta.url));
   await copyFile(new URL('./scores.xlsx', import.meta.url), workbookPath);
   return workbookPath;
+}
+
+async function readSurveyCsv() {
+  return await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
 }

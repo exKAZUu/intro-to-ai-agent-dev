@@ -2,8 +2,8 @@
  * Hosted code interpreterを使い、演習アンケートを自然文で分析する例。
  */
 
+import { readFile } from 'node:fs/promises';
 import { Agent, codeInterpreterTool, run } from '@openai/agents';
-import { readSurveyCsv } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -38,4 +38,8 @@ function displayComparison() {
   console.log('\n=== Code Interpreterなし/ありの比較 ===\n');
   console.log('なし: CSVを自然文として読むだけでは、並べ替えや参加形態別集計を再現可能な計算として扱いにくくなります。');
   console.log('あり: code_interpreter に表計算を任せ、回答者数・平均・完了率・最頻出トピックを回答内で確認できます。');
+}
+
+async function readSurveyCsv() {
+  return await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
 }

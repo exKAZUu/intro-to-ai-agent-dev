@@ -2,9 +2,9 @@
  * Handoffを使い、アンケート分析と改善案作成を専門エージェントに分ける例。
  */
 
+import { readFile } from 'node:fs/promises';
 import { Agent, run, tool } from '@openai/agents';
 import { z } from 'zod';
-import { readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -81,4 +81,16 @@ function displayComparison(items: { toJSON(): unknown }[]) {
   console.log('\n=== Handoffなし/ありの比較 ===\n');
   console.log('なし: 1つのエージェントに集計と改善案作成を同時に任せるため、どこで専門処理に切り替わったかを観察できません。');
   console.log(`あり: アンケート分析担当と改善計画担当へ ${handoffCount} 回委譲し、役割分担をログで確認できます。`);
+}
+
+async function readSurveyRows() {
+  const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');
+  return lines.map((line) => {
+    const [, , , satisfaction, hardestTopic, handsOnCompleted] = line.split(',');
+    return {
+      handsOnCompleted: handsOnCompleted === '完了',
+      hardestTopic,
+      satisfaction: Number(satisfaction),
+    };
+  });
 }
