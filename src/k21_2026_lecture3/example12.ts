@@ -28,18 +28,19 @@ const WorkshopImprovementReport = z.object({
 
 const computeAccessLogSummary = tool({
   name: 'compute_access_log_summary',
-  description: '学習サイトの総リクエスト数、演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
+  description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
   parameters: z
     .object({
       totalRequests: z.number().int(),
-      weeklyPracticePageRequests: z.number().int(),
+      weeklyRegularPracticePageRequests: z.number().int(),
+      weeklySupplementPracticePageRequests: z.number().int(),
       weeks: z.number().int().positive(),
       cacheHitRate: z.number().min(0).max(1),
     })
     .strict(),
   strict: true,
-  execute({ totalRequests, weeklyPracticePageRequests, weeks, cacheHitRate }) {
-    const practicePageRequests = weeklyPracticePageRequests * weeks;
+  execute({ totalRequests, weeklyRegularPracticePageRequests, weeklySupplementPracticePageRequests, weeks, cacheHitRate }) {
+    const practicePageRequests = (weeklyRegularPracticePageRequests + weeklySupplementPracticePageRequests) * weeks;
     const cacheHits = Math.round(totalRequests * cacheHitRate);
     return {
       practicePageRequests,
@@ -107,9 +108,10 @@ sources は developers.openai.com、platform.openai.com、openai.github.io/opena
 Python SDKドキュメント、openai.com のニュース記事、第三者記事は含めないでください。
 
 学習サイト利用ログ:
-- 総リクエスト数: 8,459,217
-- 演習ページの週次アクセス数: 739,184
-- 対象期間: 8週間
+- 総リクエスト数: 8,987,654,321,234,567
+- 通常演習ページの週次アクセス数: 87,654,321,987
+- 補講演習ページの週次アクセス数: 12,345,678,901
+- 対象期間: 89週間
 - キャッシュヒット率: 72%
 
 アンケートは20件です。

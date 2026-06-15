@@ -16,9 +16,9 @@ const agent = new Agent({
 });
 
 const request = `
-ある学習サイトでは、対象期間の総リクエスト数が 8,459,217 件でした。
-演習ページは1週間あたり 739,184 件アクセスされ、対象期間は8週間です。
-演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+ある学習サイトでは、対象期間の総リクエスト数が 8,987,654,321,234,567 件でした。
+通常演習ページは1週間あたり 87,654,321,987 件、補講演習ページは1週間あたり 12,345,678,901 件アクセスされ、対象期間は89週間です。
+通常演習ページと補講演習ページを合わせた演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
 日本語で簡潔に答え、計算過程も短く示してください。
 最終行に「演習ページ=..., その他=...」と書いてください。
 `.trim();
@@ -27,7 +27,7 @@ const response = await run(agent, request);
 displayResult(response.finalOutput);
 displayVerification(response.finalOutput);
 
-console.log('\n期待される正解: 演習ページ=5913472, その他=2545745');
+console.log('\n期待される正解: 演習ページ=8900000079032, その他=8978754321155535');
 console.log('推論を無効化したLLM単体の回答は、別の方法で検算する必要があることを確認します。');
 
 function displayResult(finalOutput: unknown) {
@@ -39,7 +39,7 @@ function displayVerification(finalOutput: unknown) {
   const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
   const practicePageRequests = text.match(/演習ページ\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
   const otherRequests = text.match(/その他\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
-  const matchedExpectedAnswer = practicePageRequests === '5913472' && otherRequests === '2545745';
+  const matchedExpectedAnswer = practicePageRequests === '8900000079032' && otherRequests === '8978754321155535';
   console.log('\n=== 検算 ===\n');
   console.log(matchedExpectedAnswer ? '期待値と一致しました。' : '期待値と一致しませんでした。');
 }
