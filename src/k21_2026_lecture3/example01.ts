@@ -1,5 +1,5 @@
 /**
- * LLMだけで大きなアクセスログ集計を行わせ、正しく見える回答でも検算が必要なことを観察する例。
+ * LLMだけで大きなアクセスログ集計を行わせ、期待値と目視比較する例。
  */
 
 import { Agent, run } from '@openai/agents';
@@ -25,21 +25,11 @@ const request = `
 
 const response = await run(agent, request);
 displayResult(response.finalOutput);
-displayVerification(response.finalOutput);
 
 console.log('\n期待される正解: 演習ページ=8900000079032, その他=8978754321155535');
-console.log('推論を無効化したLLM単体の回答は、別の方法で検算する必要があることを確認します。');
+console.log('上の回答と期待される正解を目視で比較してください。');
 
 function displayResult(finalOutput: unknown) {
   console.log('\n=== 回答 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
-}
-
-function displayVerification(finalOutput: unknown) {
-  const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-  const practicePageRequests = text.match(/演習ページ\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
-  const otherRequests = text.match(/その他\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
-  const matchedExpectedAnswer = practicePageRequests === '8900000079032' && otherRequests === '8978754321155535';
-  console.log('\n=== 検算 ===\n');
-  console.log(matchedExpectedAnswer ? '期待値と一致しました。' : '期待値と一致しませんでした。');
 }

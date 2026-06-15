@@ -138,7 +138,6 @@ await withTrace('workshop_integrated_workflow', async () => {
   console.log('\n=== 構造化された改善レポート ===\n');
   console.dir(report, { depth: null });
   displaySourceCheck(report?.sources ?? []);
-  displayAccessLogCheck(report);
 });
 
 function normalizeReport(report: WorkshopImprovementReport | undefined) {
@@ -182,15 +181,4 @@ function isAllowedOfficialSource(source: string) {
   } catch {
     return false;
   }
-}
-
-function displayAccessLogCheck(report: WorkshopImprovementReport | undefined) {
-  const expected = computeExpectedAccessLogSummary();
-  const actual = report?.accessLogSummary;
-  const matched =
-    actual?.practicePageRequests === expected.practicePageRequests &&
-    actual.otherRequests === expected.otherRequests &&
-    actual.originRequests === expected.originRequests;
-  console.log('\n=== アクセスログ集計値の確認 ===\n');
-  console.log(matched ? 'プログラム側で確定した集計値と一致しています。' : '集計値が一致しません。');
 }

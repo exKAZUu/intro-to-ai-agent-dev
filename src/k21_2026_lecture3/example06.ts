@@ -3,7 +3,7 @@
  */
 
 import { Agent, codeInterpreterTool, run } from '@openai/agents';
-import { computeSurveyStats, readSurveyCsv, readSurveyRows } from './survey-data.js';
+import { readSurveyCsv } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -27,7 +27,6 @@ ${csv}
   { maxTurns: 6 }
 );
 displayResult(response.finalOutput);
-displayExpectedStats(computeSurveyStats(await readSurveyRows()));
 displayComparison();
 
 function displayResult(finalOutput: unknown) {
@@ -35,16 +34,8 @@ function displayResult(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function displayExpectedStats(stats: ReturnType<typeof computeSurveyStats>) {
-  console.log('\n=== プログラム側で検算した主要値 ===\n');
-  console.log(`回答者数: ${stats.respondentCount}`);
-  console.log(`平均満足度: ${stats.averageSatisfaction}`);
-  console.log(`ハンズオン完了率: ${stats.handsOnCompletionRate}`);
-  console.log(`最頻出トピック: ${stats.hardestTopics.join(', ')}`);
-}
-
 function displayComparison() {
   console.log('\n=== Code Interpreterなし/ありの比較 ===\n');
-  console.log('なし: CSVを自然文として読むだけでは、並べ替えや参加形態別集計を再現可能な計算として扱いにくく、検算が必要です。');
-  console.log('あり: code_interpreter に表計算を任せ、回答者数・平均・完了率・最頻出トピックをプログラム側の検算値と比較できます。');
+  console.log('なし: CSVを自然文として読むだけでは、並べ替えや参加形態別集計を再現可能な計算として扱いにくくなります。');
+  console.log('あり: code_interpreter に表計算を任せ、回答者数・平均・完了率・最頻出トピックを回答内で確認できます。');
 }
