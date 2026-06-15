@@ -18,21 +18,23 @@ const computeAverage = tool({
   },
 });
 
+const planningAgent = new Agent({
+  name: 'Improvement planning agent',
+  handoffDescription: 'アンケート結果と教材サイト利用ログをもとに、授業改善案を作成します。',
+  instructions: '第3回講義の改善案を、90分授業の中で実行できる具体策としてまとめてください。追加質問や次の作業提案は書かないでください。',
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+});
+
 const analysisAgent = new Agent({
   name: 'Survey analysis agent',
   handoffDescription: '第3回講義アンケートの数値集計と難所抽出を担当します。',
-  instructions: '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。',
+  instructions:
+    '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。整理後は Improvement planning agent に委譲してください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAverage],
-});
-
-const planningAgent = new Agent({
-  name: 'Improvement planning agent',
-  handoffDescription: 'アンケート結果と教材サイト利用ログをもとに、次回の授業改善案を作成します。',
-  instructions: '第3回講義の改善案を、90分授業の中で実行できる具体策としてまとめてください。',
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  handoffs: [planningAgent],
 });
 
 const triageAgent = Agent.create({
@@ -40,6 +42,7 @@ const triageAgent = Agent.create({
   instructions: `
 ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
 依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
+最終回答は改善案で締め、追加質問や次の作業提案は書かないでください。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
@@ -58,5 +61,14 @@ const request = `
 `.trim();
 
 const response = await run(triageAgent, request, { maxTurns: 8 });
+displayHandoffs(response.newItems);
 console.log('\n=== Handoffによる改善案 ===\n');
 console.log(response.finalOutput);
+
+function displayHandoffs(items: { toJSON(): unknown }[]) {
+  console.log('\n=== Handoffの観察ログ ===\n');
+  console.dir(
+    items.map((item) => item.toJSON()).filter((item) => JSON.stringify(item).toLowerCase().includes('handoff')),
+    { depth: null }
+  );
+}

@@ -1,5 +1,5 @@
 /**
- * LLMだけで大きなアクセスログ集計を行わせ、検算なしでは信頼しにくいことを観察する例。
+ * LLMだけで大きなアクセスログ集計を行わせ、正しく見える回答でも検算が必要なことを観察する例。
  */
 
 import { Agent, run } from '@openai/agents';
@@ -13,7 +13,6 @@ const agent = new Agent({
 計算過程も短く示してください。ただし外部ツールは使えません。
 `.trim(),
   model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
 
 const request = `
@@ -28,7 +27,7 @@ displayResult(response.finalOutput);
 displayVerification(response.finalOutput);
 
 console.log('\n期待される正解: 演習ページ=5913472, その他=2545745');
-console.log('この例では、LLMだけの数値回答は必ず別の方法で検算する必要があることを確認します。');
+console.log('LLMだけの数値回答が正しく見える場合でも、別の方法で検算する必要があることを確認します。');
 
 function displayResult(finalOutput: unknown) {
   console.log('\n=== 回答 ===\n');
@@ -37,8 +36,8 @@ function displayResult(finalOutput: unknown) {
 
 function displayVerification(finalOutput: unknown) {
   const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-  const practicePageRequests = text.match(/演習ページ\s*=\s*([0-9,]+)/)?.[1]?.replaceAll(',', '');
-  const otherRequests = text.match(/その他\s*=\s*([0-9,]+)/)?.[1]?.replaceAll(',', '');
+  const practicePageRequests = text.match(/演習ページ\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
+  const otherRequests = text.match(/その他\s*=\s*[^0-9]*([0-9,]+)/)?.[1]?.replaceAll(',', '');
   const matchedExpectedAnswer = practicePageRequests === '5913472' && otherRequests === '2545745';
   console.log('\n=== 検算 ===\n');
   console.log(matchedExpectedAnswer ? '期待値と一致しました。' : '期待値と一致しませんでした。');

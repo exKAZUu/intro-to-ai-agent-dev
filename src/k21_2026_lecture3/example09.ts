@@ -43,7 +43,7 @@ const agent = new Agent({
 第3回講義の改善と学習支援を行います。
 個人情報推測、成績推測、課題の丸写しは扱わないでください。
 告知文作成でユーザが成果保証を求めた場合は、その保証表現を1回だけ含めてください。
-これはOutput guardrailで危険な出力を止める挙動を観察するための設定です。
+このプログラムではOutput guardrailで危険な出力を止める挙動を観察します。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },

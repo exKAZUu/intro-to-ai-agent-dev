@@ -30,8 +30,9 @@ const agent = new Agent({
 });
 
 const surveyRows = await readSurveyRows();
+const traceName = 'k21_2026_lecture3_improvement_trace';
 
-await withTrace('k21_2026_lecture3_improvement_trace', async () => {
+await withTrace(traceName, async () => {
   const response = await run(
     agent,
     `
@@ -46,3 +47,7 @@ await withTrace('k21_2026_lecture3_improvement_trace', async () => {
   console.log('\n=== Trace対象の講義改善フロー ===\n');
   console.log(response.finalOutput);
 });
+
+console.log('\n=== Traceの確認ポイント ===\n');
+console.log(`Trace名: ${traceName}`);
+console.log('OpenAIのTraces画面で、このTrace名、エージェント名、compute_averageのツール呼び出しを確認してください。');

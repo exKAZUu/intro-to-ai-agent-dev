@@ -22,7 +22,7 @@ const LectureImprovementReport = z.object({
   }),
   selectedExamples: z.array(z.string()).length(3),
   risks: z.array(z.string()).min(1),
-  sources: z.array(z.string().describe('根拠にした公式URL')).min(1),
+  sources: z.array(z.string().describe('根拠にしたOpenAI公式URLまたはAgents SDK JavaScript/TypeScript公式URL')).min(1),
   nextActions: z.array(z.string()).length(3),
 });
 
@@ -92,10 +92,10 @@ const agent = new Agent({
   name: 'Lecture improvement workflow',
   instructions: `
 あなたはAIエージェント開発講座の改善レポート作成担当です。
-最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDKドキュメントだけを根拠にしてください。
+最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDK JavaScript/TypeScriptドキュメントだけを根拠にしてください。
 アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
 selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、次回90分授業で扱う3つを選んでください。
-sources には根拠にした公式URLだけを入れてください。
+sources には根拠にした公式URLだけを入れてください。Python SDKドキュメントや第三者記事のURLは含めないでください。
 最終出力は指定された構造に従ってください。
 `.trim(),
   model: 'gpt-5.4-nano',
@@ -128,4 +128,27 @@ await withTrace('k21_2026_lecture3_integrated_workflow', async () => {
   const response = await run(agent, request, { maxTurns: 10 });
   console.log('\n=== 構造化された改善レポート ===\n');
   console.dir(response.finalOutput, { depth: null });
+  displaySourceCheck(response.finalOutput?.sources ?? []);
 });
+
+function displaySourceCheck(sources: string[]) {
+  const unexpectedSources = sources.filter((source) => !isAllowedOfficialSource(source));
+  console.log('\n=== 根拠URLの確認 ===\n');
+  console.log(
+    unexpectedSources.length === 0
+      ? 'OpenAI公式URLまたはAgents SDK JavaScript/TypeScript公式URLだけが含まれています。'
+      : `想定外のURLが含まれています: ${unexpectedSources.join(', ')}`
+  );
+}
+
+function isAllowedOfficialSource(source: string) {
+  try {
+    const url = new URL(source);
+    if (url.hostname === 'developers.openai.com' || url.hostname === 'platform.openai.com') {
+      return true;
+    }
+    return url.hostname === 'openai.github.io' && url.pathname.includes('/openai-agents-js/');
+  } catch {
+    return false;
+  }
+}

@@ -13,8 +13,8 @@ const SurveyAnalysis = z.object({
   averageScore: z.number().describe('満足度の平均値'),
   handsOnCompletionRate: z.number().describe('ハンズオン完了率。0から1の値'),
   hardestTopics: z.array(z.string()).min(1).describe('最も多く難しいと回答されたトピック。同率なら複数。'),
-  recommendedTopics: z.array(z.string()).length(3).describe('次回の90分授業で優先して扱う題材を3つ'),
-  improvementActions: z.array(z.string()).length(3).describe('次回までに行う改善アクションを3つ'),
+  recommendedTopics: z.array(z.string()).length(3).describe('90分授業で優先して扱う題材を3つ'),
+  improvementActions: z.array(z.string()).length(3).describe('講義改善のために行うアクションを3つ'),
 });
 
 const computeSurveyStats = tool({
