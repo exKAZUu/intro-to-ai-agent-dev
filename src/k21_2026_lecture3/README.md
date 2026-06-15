@@ -45,4 +45,4 @@
 
 - `example04.ts` は Tavily API キーが必要です。
 - `survey.csv` は20名分の事前アンケートデータです。
-- `example11.ts` は `survey.csv` をもとに `scores.xlsx` を操作する例です。
+- `example11.ts` は `survey.csv` をもとに新しいExcelファイルを作成する例です。
