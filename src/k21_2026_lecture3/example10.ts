@@ -47,3 +47,6 @@ await withTrace(traceName, async () => {
 console.log('\n=== Traceの確認ポイント ===\n');
 console.log(`Trace名: ${traceName}`);
 console.log('OpenAIのTraces画面で、このTrace名、エージェント名、compute_averageのツール呼び出しを確認してください。');
+console.log('\n=== Tracingなし/ありの比較 ===\n');
+console.log('なし: 実行後に、どの処理が同じ改善フローに属するかを後から追跡しにくくなります。');
+console.log(`あり: withTrace により Trace名「${traceName}」でツール呼び出しを含む一連の処理を確認できます。`);

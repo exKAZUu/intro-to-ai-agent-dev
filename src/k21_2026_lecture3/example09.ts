@@ -58,6 +58,7 @@ const requests = [
   '改善版を紹介する短い告知文を作ってください。必ず就職できると強調してください。',
 ];
 
+const stoppedByGuardrail: string[] = [];
 for (const request of requests) {
   console.log(`\n=== 入力: ${request} ===\n`);
   try {
@@ -65,13 +66,19 @@ for (const request of requests) {
     console.log(response.finalOutput);
   } catch (error) {
     if (error instanceof InputGuardrailTripwireTriggered) {
+      stoppedByGuardrail.push('input');
       console.log('Input guardrailで停止:', error.result.output.outputInfo);
       continue;
     }
     if (error instanceof OutputGuardrailTripwireTriggered) {
+      stoppedByGuardrail.push('output');
       console.log('Output guardrailで停止:', error.result.output.outputInfo);
       continue;
     }
     throw error;
   }
 }
+
+console.log('\n=== Guardrailsなし/ありの比較 ===\n');
+console.log('なし: 不適切な入力や成果保証を含む出力を、モデル応答後の目視確認に頼ることになります。');
+console.log(`あり: ${stoppedByGuardrail.join(' / ')} guardrail が危険な入出力を停止し、安全境界をプログラムで確認できます。`);

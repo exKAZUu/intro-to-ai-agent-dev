@@ -66,6 +66,7 @@ const response = await run(triageAgent, request, { maxTurns: 8 });
 displayHandoffs(response.newItems);
 console.log('\n=== Handoffによる改善案 ===\n');
 console.log(response.finalOutput);
+displayComparison(response.newItems);
 
 function displayHandoffs(items: { toJSON(): unknown }[]) {
   console.log('\n=== Handoffの観察ログ ===\n');
@@ -73,4 +74,11 @@ function displayHandoffs(items: { toJSON(): unknown }[]) {
     items.map((item) => item.toJSON()).filter((item) => JSON.stringify(item).toLowerCase().includes('handoff')),
     { depth: null }
   );
+}
+
+function displayComparison(items: { toJSON(): unknown }[]) {
+  const handoffCount = items.filter((item) => JSON.stringify(item.toJSON()).toLowerCase().includes('handoff_call_item')).length;
+  console.log('\n=== Handoffなし/ありの比較 ===\n');
+  console.log('なし: 1つのエージェントに集計と改善案作成を同時に任せるため、どこで専門処理に切り替わったかを観察できません。');
+  console.log(`あり: アンケート分析担当と改善計画担当へ ${handoffCount} 回委譲し、役割分担をログで確認できます。`);
 }

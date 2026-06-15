@@ -65,6 +65,7 @@ console.dir(response.finalOutput, { depth: null });
 console.log('\n平均満足度だけをプログラムから参照:', response.finalOutput?.averageScore);
 console.log('ハンズオン完了率だけをプログラムから参照:', response.finalOutput?.handsOnCompletionRate);
 displayExpectedStats(computeExpectedSurveyStats(surveyRows));
+displayComparison(response.finalOutput);
 
 function displayExpectedStats(stats: ReturnType<typeof computeExpectedSurveyStats>) {
   console.log('\n=== プログラム側で検算した主要値 ===\n');
@@ -72,4 +73,14 @@ function displayExpectedStats(stats: ReturnType<typeof computeExpectedSurveyStat
   console.log(`平均満足度: ${stats.averageSatisfaction}`);
   console.log(`ハンズオン完了率: ${stats.handsOnCompletionRate}`);
   console.log(`最頻出トピック: ${stats.hardestTopics.join(', ')}`);
+}
+
+function displayComparison(finalOutput: unknown) {
+  console.log('\n=== Structured outputなし/ありの比較 ===\n');
+  console.log('なし: 自然文回答では、平均満足度や完了率を後続プログラムから安全に参照するには追加のパース処理が必要です。');
+  console.log(
+    typeof finalOutput === 'object' && finalOutput !== null
+      ? 'あり: outputType により、averageScore や handsOnCompletionRate を型付きオブジェクトのプロパティとして参照できます。'
+      : 'あり: outputType を指定しているため、本来は型付きオブジェクトとして参照できます。'
+  );
 }

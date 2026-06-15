@@ -41,6 +41,7 @@ ${surveyCsv}
     { maxTurns: 10 }
   );
   displayResult(response.finalOutput);
+  displayComparison(workbookPath);
 } finally {
   await mcpServer.close();
 }
@@ -48,6 +49,12 @@ ${surveyCsv}
 function displayResult(finalOutput: unknown) {
   console.log('\n=== Excelアンケート分析結果 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
+
+function displayComparison(workbookPath: string) {
+  console.log('\n=== MCPなし/ありの比較 ===\n');
+  console.log('なし: LLMはCSVの集計結果を文章で返せても、ExcelファイルにSurveyシートを書き込む要件は満たせません。');
+  console.log(`あり: Excel MCP Server のツールで新しい workbook に Survey シートを書き込みました: ${workbookPath}`);
 }
 
 async function createSurveyWorkbook() {
