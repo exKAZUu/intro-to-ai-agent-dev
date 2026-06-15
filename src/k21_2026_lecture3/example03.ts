@@ -46,7 +46,7 @@ const request = `
 キャッシュヒット率は72%でした。
 この学習サイトの利用ログを集計してください。
 必ず compute_access_log_summary を使い、暗算で答えないでください。
-最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
+最終回答では、通常演習ページと補講演習ページを合わせた演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
 `.trim();
 
 const response = await run(agent, request, { maxTurns: 5 });
@@ -54,14 +54,9 @@ displayToolCalls(response.newItems);
 displayResult(response.finalOutput);
 displayComparison();
 
-console.log('\n期待される主要値: 演習ページ=8900000079032, その他=8978754321155535, キャッシュヒット=6471111111288888, オリジン到達=2516543209945679');
-
 function displayToolCalls(items: { toJSON(): unknown }[]) {
   console.log('\n=== ツール呼び出し ===\n');
-  console.dir(
-    items.map((item) => item.toJSON()).filter((item) => JSON.stringify(item).includes('compute_access_log_summary')),
-    { depth: null }
-  );
+  console.dir(extractToolCalls(items, 'compute_access_log_summary'), { depth: null });
 }
 
 function displayResult(finalOutput: unknown) {
@@ -73,4 +68,21 @@ function displayComparison() {
   console.log('\n=== 汎用計算ツール/業務専用ツールの比較 ===\n');
   console.log('汎用計算ツール: 式の作り方をLLMが毎回判断するため、必要な入力項目や単位の抜けを防ぎにくくなります。');
   console.log('業務専用ツール: 総リクエスト数、2種類の週次アクセス数、週数、キャッシュヒット率を契約として受け取り、必要な集計をまとめて返せます。');
+}
+
+function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
+  const calls = new Map<string, { arguments?: string; output?: string }>();
+  for (const item of items) {
+    const itemJson = item.toJSON() as { rawItem?: { callId?: string; name?: string; arguments?: string }; output?: string };
+    const callId = itemJson.rawItem?.callId;
+    if (!callId || itemJson.rawItem?.name !== toolName) {
+      continue;
+    }
+    calls.set(callId, {
+      ...calls.get(callId),
+      ...(itemJson.rawItem.arguments ? { arguments: itemJson.rawItem.arguments } : {}),
+      ...(itemJson.output ? { output: itemJson.output } : {}),
+    });
+  }
+  return [...calls.values()];
 }
