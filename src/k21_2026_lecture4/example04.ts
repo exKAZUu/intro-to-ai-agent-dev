@@ -4,6 +4,8 @@
 
 import { Codex } from '@openai/codex-sdk';
 
+import { displayFinalResponse } from './helpers.js';
+
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: process.cwd(),
@@ -18,8 +20,10 @@ src/k21_2026_lecture3/example01.ts から example03.ts までを確認し、ア�
 `.trim());
 
 let finalResponse = '';
+const completedItemTypes: string[] = [];
 for await (const event of events) {
   if (event.type === 'item.completed') {
+    completedItemTypes.push(event.item.type);
     console.log('completed item:', event.item.type);
     if (event.item.type === 'agent_message') finalResponse = event.item.text;
   }
@@ -28,5 +32,6 @@ for await (const event of events) {
   }
 }
 
-console.log('\n=== 最終回答 ===\n');
-console.log(finalResponse);
+displayFinalResponse('最終回答', finalResponse);
+console.log('\n=== 完了したitem種別 ===\n');
+console.dir(completedItemTypes, { depth: null });

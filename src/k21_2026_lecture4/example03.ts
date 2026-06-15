@@ -4,6 +4,8 @@
 
 import { Codex } from '@openai/codex-sdk';
 
+import { displayFinalResponse, displayItemSummary, parseJson } from './helpers.js';
+
 const LectureMappingSchema = {
   type: 'object',
   properties: {
@@ -43,15 +45,7 @@ src/k21_2026_lecture3 の流れを読み、lecture4でCodex SDKに対応させ�
   { outputSchema: LectureMappingSchema }
 );
 
-console.log('\n=== JSON文字列 ===\n');
-console.log(turn.finalResponse);
+displayFinalResponse('JSON文字列', turn.finalResponse);
+displayItemSummary(turn.items);
 console.log('\n=== matchingConcepts 件数 ===');
-console.log(parseCodexJson(turn.finalResponse).matchingConcepts.length);
-
-function parseCodexJson(json: string): { matchingConcepts: unknown[] } {
-  try {
-    return JSON.parse(json);
-  } catch (error) {
-    throw new Error(`CodexのJSON出力を解析できませんでした: ${error}`);
-  }
-}
+console.log(parseJson<{ matchingConcepts: unknown[] }>(turn.finalResponse).matchingConcepts.length);

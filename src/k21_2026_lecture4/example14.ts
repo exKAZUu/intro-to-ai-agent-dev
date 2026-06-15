@@ -44,6 +44,33 @@ k21_2026_lecture3のexample07.tsとexample08.tsがどう接続しているか、
   );
   console.log('\n=== Handoff結果 ===\n');
   console.log(response.finalOutput);
+  displayHandoffsAndMcpCalls(response.newItems);
 } finally {
   await mcpServer.close();
+}
+
+function displayHandoffsAndMcpCalls(items: { toJSON(): unknown }[]) {
+  type Observation =
+    | { from: string | undefined; kind: 'handoff'; to: string | undefined }
+    | { kind: 'mcp_call'; server: string | undefined; tool: string | undefined };
+
+  console.log('\n=== Handoff / MCP の観察ログ ===\n');
+  console.dir(
+    items.flatMap<Observation>((item) => {
+      const itemJson = item.toJSON() as {
+        rawItem?: { name?: string; serverLabel?: string };
+        sourceAgent?: { name?: string };
+        targetAgent?: { name?: string };
+        type?: string;
+      };
+      if (itemJson.sourceAgent && itemJson.targetAgent && itemJson.rawItem?.name?.startsWith('transfer_to_')) {
+        return [{ kind: 'handoff', from: itemJson.sourceAgent.name, to: itemJson.targetAgent.name }];
+      }
+      if (itemJson.type === 'mcp_call') {
+        return [{ kind: 'mcp_call', server: itemJson.rawItem?.serverLabel, tool: itemJson.rawItem?.name }];
+      }
+      return [];
+    }),
+    { depth: null }
+  );
 }

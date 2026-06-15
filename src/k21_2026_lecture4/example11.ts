@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
+import { countItems, displayFinalResponse, displayItemSummary } from './helpers.js';
+
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-review-'));
 await writeFile(
   join(workspace, 'survey.js'),
@@ -34,6 +36,6 @@ survey.js をレビューしてください。
 `.trim());
 
 console.log('\nWorkspace:', workspace);
-console.log('\n=== レビュー結果 ===\n');
-console.log(turn.finalResponse);
-console.log('\nfile changes:', turn.items.filter((item) => item.type === 'file_change').length);
+displayFinalResponse('レビュー結果', turn.finalResponse);
+displayItemSummary(turn.items);
+console.log('\nfile changes:', countItems(turn.items, 'file_change'));

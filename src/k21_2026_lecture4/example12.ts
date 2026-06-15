@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
+import { displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
+
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-multi-thread-'));
 const filePath = join(workspace, 'topics.json');
 await writeFile(filePath, JSON.stringify({ topics: ['tools', 'MCP', 'guardrails'] }, null, 2));
@@ -23,9 +25,11 @@ const implementer = codex.startThread({
 
 const implementation = await implementer.run(`
 topics.json に各題材の minutes: 23 と objective を追加してください。
+objective は90分ワークショップで観察できる行動として書いてください。
 `.trim());
-console.log('\n=== 実装担当 ===\n');
-console.log(implementation.finalResponse);
+displayFinalResponse('実装担当', implementation.finalResponse);
+displayItemSummary(implementation.items);
+displayFileChanges(implementation.items);
 
 const reviewer = codex.startThread({
   workingDirectory: workspace,
@@ -39,7 +43,7 @@ const review = await reviewer.run(`
 topics.json を読み、lecture4の教材データとして不足している点をレビューしてください。
 ファイルは変更しないでください。
 `.trim());
-console.log('\n=== レビュー担当 ===\n');
-console.log(review.finalResponse);
+displayFinalResponse('レビュー担当', review.finalResponse);
+displayItemSummary(review.items);
 console.log('\n=== topics.json ===\n');
 console.log(await readFile(filePath, 'utf8'));

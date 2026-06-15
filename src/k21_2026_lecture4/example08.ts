@@ -4,6 +4,8 @@
 
 import { Codex } from '@openai/codex-sdk';
 
+import { displayFinalResponse, displayItemSummary, displayWebSearches } from './helpers.js';
+
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: process.cwd(),
@@ -23,10 +25,11 @@ const turn = await thread.run(
 
 web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式情報を確認し、このアンケート結果に基づく次回改善案を3つに絞ってください。
 各改善案には、どの難所に対応するか、授業で追加する具体的な演習、参照した情報源を含めてください。
+参照先は OpenAI 公式ドキュメントまたは Agents SDK JavaScript/TypeScript 公式ドキュメントに限定してください。
 ファイルは変更しないでください。
 `.trim()
 );
 
-console.log('\n=== 調査結果 ===\n');
-console.log(turn.finalResponse);
-console.log('\nweb search items:', turn.items.filter((item) => item.type === 'web_search').length);
+displayFinalResponse('調査結果', turn.finalResponse);
+displayItemSummary(turn.items);
+displayWebSearches(turn.items);
