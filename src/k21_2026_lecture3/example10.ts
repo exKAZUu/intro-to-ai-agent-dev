@@ -1,5 +1,5 @@
 /**
- * Tracingを使い、ツール利用を含む講義改善フローを1つの処理として記録する例。
+ * Tracingを使い、ツール利用を含む改善フローを1つの処理として記録する例。
  */
 
 import { Agent, run, tool, withTrace } from '@openai/agents';
@@ -19,9 +19,9 @@ const computeAverage = tool({
 });
 
 const agent = new Agent({
-  name: 'Trace lecture improvement analyst',
+  name: 'Trace workshop improvement analyst',
   instructions: `
-第3回講義のアンケートを分析し、改善コメントを簡潔に返してください。
+演習アンケートを分析し、改善コメントを簡潔に返してください。
 満足度平均は必ず compute_average を使ってください。
 `.trim(),
   model: 'gpt-5.4-nano',
@@ -30,13 +30,13 @@ const agent = new Agent({
 });
 
 const surveyRows = await readSurveyRows();
-const traceName = 'k21_2026_lecture3_improvement_trace';
+const traceName = 'workshop_improvement_trace';
 
 await withTrace(traceName, async () => {
   const response = await run(
     agent,
     `
-第3回アンケートは20件です。
+演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} です。
 難所は ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
 ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、自由記述では実用例、後続処理、失敗例、接続手順への要望が多いです。
@@ -44,7 +44,7 @@ await withTrace(traceName, async () => {
 `.trim(),
     { maxTurns: 5 }
   );
-  console.log('\n=== Trace対象の講義改善フロー ===\n');
+  console.log('\n=== Trace対象の改善フロー ===\n');
   console.log(response.finalOutput);
 });
 

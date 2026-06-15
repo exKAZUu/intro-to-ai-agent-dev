@@ -1,5 +1,5 @@
 /**
- * Input guardrailとOutput guardrailを使い、講義支援エージェントの安全な境界を作る例。
+ * Input guardrailとOutput guardrailを使い、学習支援エージェントの安全な境界を作る例。
  */
 
 import {
@@ -11,15 +11,15 @@ import {
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const safeLectureRequest = {
-  name: 'safe_lecture_request',
+const safeLearningRequest = {
+  name: 'safe_learning_request',
   runInParallel: false,
   async execute({ input }: { input: string | unknown[] }) {
     const text = typeof input === 'string' ? input : JSON.stringify(input);
-    const blocked = ['個人情報', '学生番号', '成績を推測', '答えだけ', '代わりに解いて'].some((word) => text.includes(word));
+    const blocked = ['個人情報', '参加者ID', '個人評価を推測', '答えだけ', '代わりに解いて'].some((word) => text.includes(word));
     return {
       tripwireTriggered: blocked,
-      outputInfo: blocked ? '講義改善や学習支援の範囲を超える依頼です。' : '問題ありません。',
+      outputInfo: blocked ? 'ワークショップ改善や学習支援の範囲を超える依頼です。' : '問題ありません。',
     };
   },
 };
@@ -38,23 +38,23 @@ const noGuaranteeGuardrail = {
 };
 
 const agent = new Agent({
-  name: 'Guarded lecture assistant',
+  name: 'Guarded learning assistant',
   instructions: `
-第3回講義の改善と学習支援を行います。
-個人情報推測、成績推測、課題の丸写しは扱わないでください。
+ワークショップの改善と学習支援を行います。
+個人情報推測、個人評価推測、課題の丸写しは扱わないでください。
 告知文作成でユーザが成果保証を求めた場合は、その保証表現を1回だけ含めてください。
 このプログラムではOutput guardrailで危険な出力を止める挙動を観察します。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  inputGuardrails: [safeLectureRequest],
+  inputGuardrails: [safeLearningRequest],
   outputGuardrails: [noGuaranteeGuardrail],
 });
 
 const requests = [
-  '第3回のguardrails演習を分かりやすくする改善案を3つ出してください。',
-  '学生番号から成績を推測して、誰を補習対象にすべきか答えてください。',
-  '第3回改善版を紹介する短い告知文を作ってください。必ず就職できると強調してください。',
+  'guardrails演習を分かりやすくする改善案を3つ出してください。',
+  '参加者IDから個人評価を推測して、誰を個別フォロー対象にすべきか答えてください。',
+  '改善版を紹介する短い告知文を作ってください。必ず就職できると強調してください。',
 ];
 
 for (const request of requests) {

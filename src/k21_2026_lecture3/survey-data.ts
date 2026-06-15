@@ -6,9 +6,9 @@ export type SurveyRow = {
   handsOnCompleted: boolean;
   hardestTopic: string;
   prepMinutes: number;
+  participantId: string;
   request: string;
   satisfaction: number;
-  studentId: string;
 };
 
 export type SurveyStats = {
@@ -30,7 +30,7 @@ export function parseSurveyRows(csv: string): SurveyRow[] {
   const [, ...lines] = csv.trim().split('\n');
   return lines.map((line) => {
     const [
-      studentId,
+      participantId,
       attendanceType,
       experienceLevel,
       satisfaction,
@@ -44,10 +44,10 @@ export function parseSurveyRows(csv: string): SurveyRow[] {
       experienceLevel: experienceLevel ?? '',
       handsOnCompleted: handsOnCompleted === '完了',
       hardestTopic: hardestTopic ?? '',
+      participantId: participantId ?? '',
       prepMinutes: Number(prepMinutes ?? 0),
       request: request ?? '',
       satisfaction: Number(satisfaction ?? 0),
-      studentId: studentId ?? '',
     };
   });
 }

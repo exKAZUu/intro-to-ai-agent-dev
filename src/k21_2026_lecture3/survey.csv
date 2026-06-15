@@ -1,4 +1,4 @@
-student_id,attendance_type,experience_level,satisfaction,hardest_topic,hands_on_completed,prep_minutes,request
+participant_id,attendance_type,experience_level,satisfaction,hardest_topic,hands_on_completed,prep_minutes,request
 S001,教室参加,初学者,5,tools,完了,30,実用的なツール設計例を増やしてほしい
 S002,オンライン参加,API利用経験あり,4,structured output,完了,45,型定義から後続処理まで通して見たい
 S003,教室参加,初学者,4,guardrails,完了,20,失敗例と改善例を比較したい

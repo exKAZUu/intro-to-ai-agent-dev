@@ -1,5 +1,5 @@
 /**
- * Excel MCP Serverを使い、講義改善データをExcelファイルとして作成・分析する例。
+ * Excel MCP Serverを使い、アンケートデータをExcelファイルとして作成・分析する例。
  */
 
 import { Agent, MCPServerStdio, run } from '@openai/agents';
@@ -17,9 +17,9 @@ await mcpServer.connect();
 
 try {
   const agent = new Agent({
-    name: 'Lecture survey workbook analyst',
+    name: 'Survey workbook analyst',
     instructions: `
-あなたは第3回講義アンケートのExcel分析担当です。
+あなたは演習アンケートのExcel分析担当です。
 Excel MCP Serverのツールを使ってファイルにデータを書き込み、平均満足度、最頻出の難所、改善コメントを報告してください。
 最後は改善コメントで締め、追加質問や次の作業提案は書かないでください。
 `.trim(),

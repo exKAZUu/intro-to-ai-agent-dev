@@ -1,5 +1,5 @@
 /**
- * Handoffを使い、アンケート分析と授業改善案作成を専門エージェントに分ける例。
+ * Handoffを使い、アンケート分析と改善案作成を専門エージェントに分ける例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
@@ -20,15 +20,15 @@ const computeAverage = tool({
 
 const planningAgent = new Agent({
   name: 'Improvement planning agent',
-  handoffDescription: 'アンケート結果と教材サイト利用ログをもとに、授業改善案を作成します。',
-  instructions: '第3回講義の改善案を、90分授業の中で実行できる具体策としてまとめてください。追加質問や次の作業提案は書かないでください。',
+  handoffDescription: 'アンケート結果と学習サイト利用ログをもとに、改善案を作成します。',
+  instructions: 'ワークショップの改善案を、90分ワークショップの中で実行できる具体策としてまとめてください。追加質問や次の作業提案は書かないでください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
 
 const analysisAgent = new Agent({
   name: 'Survey analysis agent',
-  handoffDescription: '第3回講義アンケートの数値集計と難所抽出を担当します。',
+  handoffDescription: '演習アンケートの数値集計と難所抽出を担当します。',
   instructions:
     '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。整理後は Improvement planning agent に委譲してください。',
   model: 'gpt-5.4-nano',
@@ -38,7 +38,7 @@ const analysisAgent = new Agent({
 });
 
 const triageAgent = Agent.create({
-  name: 'Lecture improvement triage',
+  name: 'Workshop improvement triage',
   instructions: `
 ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
 依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
@@ -51,13 +51,13 @@ const triageAgent = Agent.create({
 
 const surveyRows = await readSurveyRows();
 const request = `
-第3回アンケートは20件です。
+演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} でした。
 難しかったトピックは ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
 ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、オンライン参加者と録画視聴者に多めでした。
 自由記述では、toolsは実用例、structured outputは後続処理、guardrailsは失敗例、MCPは接続手順への要望が目立ちました。
-教材サイトでは演習ページのアクセスが多く、guardrailsの滞在時間が短めでした。
-この結果を分析し、次回の改善案を作ってください。
+学習サイトでは演習ページのアクセスが多く、guardrailsの滞在時間が短めでした。
+この結果を分析し、改善案を作ってください。
 `.trim();
 
 const response = await run(triageAgent, request, { maxTurns: 8 });

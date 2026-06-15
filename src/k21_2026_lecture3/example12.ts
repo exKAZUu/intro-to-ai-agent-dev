@@ -1,5 +1,5 @@
 /**
- * 主要概念を組み合わせ、第3回講義改善レポートを構造化して作成する総合例。
+ * 主要概念を組み合わせ、改善レポートを構造化して作成する総合例。
  */
 
 import { Agent, run, tool, webSearchTool, withTrace } from '@openai/agents';
@@ -8,7 +8,7 @@ import { readSurveyRows } from './survey-data.js';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const LectureImprovementReport = z.object({
+const WorkshopImprovementReport = z.object({
   title: z.string(),
   accessLogSummary: z.object({
     practicePageRequests: z.number().int(),
@@ -28,7 +28,7 @@ const LectureImprovementReport = z.object({
 
 const computeAccessLogSummary = tool({
   name: 'compute_access_log_summary',
-  description: '教材サイトの総リクエスト数、演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
+  description: '学習サイトの総リクエスト数、演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
   parameters: z
     .object({
       totalRequests: z.number().int(),
@@ -75,40 +75,40 @@ const computeSurveyStats = tool({
   },
 });
 
-const safeLectureRequest = {
-  name: 'safe_lecture_request',
+const safeLearningRequest = {
+  name: 'safe_learning_request',
   runInParallel: false,
   async execute({ input }: { input: string | unknown[] }) {
     const text = typeof input === 'string' ? input : JSON.stringify(input);
-    const blocked = ['個人情報', '学生番号', '成績を推測'].some((word) => text.includes(word));
+    const blocked = ['個人情報', '参加者ID', '個人評価を推測'].some((word) => text.includes(word));
     return {
       tripwireTriggered: blocked,
-      outputInfo: blocked ? '個人情報や成績推測を含む依頼は扱えません。' : '問題ありません。',
+      outputInfo: blocked ? '個人情報や個人評価推測を含む依頼は扱えません。' : '問題ありません。',
     };
   },
 };
 
 const agent = new Agent({
-  name: 'Lecture improvement workflow',
+  name: 'Workshop improvement workflow',
   instructions: `
-あなたはAIエージェント開発講座の改善レポート作成担当です。
+あなたはAIエージェント開発ワークショップの改善レポート作成担当です。
 最新情報は web_search で確認し、OpenAI公式ドキュメントまたは公式Agents SDK JavaScript/TypeScriptドキュメントだけを根拠にしてください。
 アクセスログ集計は compute_access_log_summary、アンケート集計は compute_survey_stats を使ってください。
-selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、次回90分授業で扱う3つを選んでください。
+selectedExamples は tools、hosted tools、code interpreter、structured output、handoffs、guardrails、tracing、MCP の中から、90分ワークショップで扱う3つを選んでください。
 sources には根拠にした公式URLだけを入れてください。Python SDKドキュメントや第三者記事のURLは含めないでください。
 最終出力は指定された構造に従ってください。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [webSearchTool({ searchContextSize: 'low' }), computeAccessLogSummary, computeSurveyStats],
-  inputGuardrails: [safeLectureRequest],
-  outputType: LectureImprovementReport,
+  inputGuardrails: [safeLearningRequest],
+  outputType: WorkshopImprovementReport,
 });
 
 const surveyRows = await readSurveyRows();
 const request = `
-第3回講義の改善レポートを作ってください。
-教材サイト利用ログ:
+ワークショップの改善レポートを作ってください。
+学習サイト利用ログ:
 - 総リクエスト数: 8,459,217
 - 演習ページの週次アクセス数: 739,184
 - 対象期間: 8週間
@@ -121,10 +121,10 @@ const request = `
 - 参加形態: ${surveyRows.map((row) => row.attendanceType).join(', ')}
 - 自由記述の主な要望: toolsの実用例、structured outputの後続処理、guardrailsの失敗例、MCPの接続手順
 
-OpenAI Agents SDK の現在の主要機能も公式ドキュメントで確認し、次回アクションを3つ出してください。
+OpenAI Agents SDK の現在の主要機能も公式ドキュメントで確認し、改善アクションを3つ出してください。
 `.trim();
 
-await withTrace('k21_2026_lecture3_integrated_workflow', async () => {
+await withTrace('workshop_integrated_workflow', async () => {
   const response = await run(agent, request, { maxTurns: 10 });
   console.log('\n=== 構造化された改善レポート ===\n');
   console.dir(response.finalOutput, { depth: null });
