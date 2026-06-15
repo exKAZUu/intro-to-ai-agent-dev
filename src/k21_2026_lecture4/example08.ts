@@ -1,35 +1,45 @@
 /**
- * CodexのwebSearchModeを有効にし、前例のアンケート分析結果を外部情報で補強する例。
+ * Codexに一時ワークスペースのファイルを編集させ、コードベース操作の基本を確認する例。
  */
+
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayWebSearches } from './helpers.js';
+import { displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
 
-const codex = new Codex();
-const thread = codex.startThread({
-  workingDirectory: process.cwd(),
-  sandboxMode: 'read-only',
-  approvalPolicy: 'never',
-  webSearchMode: 'cached',
-  modelReasoningEffort: 'low',
-});
-
-const turn = await thread.run(
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-edit-'));
+const planPath = join(workspace, 'lecture_plan.md');
+await writeFile(
+  planPath,
   `
-前の例では、第3回の試行授業アンケートから以下の結果を得ました。
+# 第3回講義案
 
-- 平均満足度: 3.8
-- 最頻出の難所: tools, MCP
-- 改善アクション: toolsの利用手順を整理する、MCPの基本概念と接続手順を補足する、toolsとMCPを組み合わせた演習を追加する
-
-web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式情報を確認し、このアンケート結果に基づく次回改善案を3つに絞ってください。
-各改善案には、どの難所に対応するか、授業で追加する具体的な演習、参照した情報源を含めてください。
-参照先は OpenAI 公式ドキュメントまたは Agents SDK JavaScript/TypeScript 公式ドキュメントに限定してください。
-ファイルは変更しないでください。
+- tools
+- MCP
+- guardrails
 `.trim()
 );
 
-displayFinalResponse('調査結果', turn.finalResponse);
+const codex = new Codex();
+const thread = codex.startThread({
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
+
+const turn = await thread.run(`
+lecture_plan.md を編集し、各題材に23分の演習時間と1文の学習目標を追加してください。
+90分講義の残り時間で導入と振り返りができるように、最後に合計演習時間も追記してください。
+`.trim());
+
+console.log('\nWorkspace:', workspace);
+displayFinalResponse('Codexの回答', turn.finalResponse);
+console.log('\n=== 編集後のファイル ===\n');
+console.log(await readFile(planPath, 'utf8'));
 displayItemSummary(turn.items);
-displayWebSearches(turn.items);
+displayFileChanges(turn.items);

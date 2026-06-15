@@ -1,5 +1,5 @@
 /**
- * Codexに一時ワークスペースでスクリプトを書かせ、lecture3のアンケート分析をコード実行で再現する例。
+ * Codexのコード実行結果をoutputSchemaで構造化し、lecture3のstructured output相当を実現する例。
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -8,9 +8,9 @@ import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
+import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary, parseJson } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-analysis-'));
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-'));
 await writeFile(
   join(workspace, 'survey.csv'),
   `
@@ -23,6 +23,18 @@ Eve,対面,5,tools,完了,業務に近い題材がよい
 `.trim()
 );
 
+const SurveySchema = {
+  type: 'object',
+  properties: {
+    averageScore: { type: 'number' },
+    handsOnCompletionRate: { type: 'number' },
+    hardestTopics: { type: 'array', items: { type: 'string' } },
+    improvementActions: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
+  },
+  required: ['averageScore', 'handsOnCompletionRate', 'hardestTopics', 'improvementActions'],
+  additionalProperties: false,
+} as const;
+
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: workspace,
@@ -32,14 +44,18 @@ const thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(`
-survey.csv を分析する小さなJavaScriptスクリプトを作成して実行してください。
-平均満足度、ハンズオン完了率、最頻出の難所、次回改善案を日本語で報告してください。
-分析は必ず作成したスクリプトで行い、最後に実行したコマンドも書いてください。
-`.trim());
+const turn = await thread.run(
+  `
+survey.csv をスクリプトで分析し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
+平均満足度とハンズオン完了率は、必ず作成したスクリプトの計算結果を使ってください。
+`.trim(),
+  { outputSchema: SurveySchema }
+);
 
-console.log('\nWorkspace:', workspace);
-displayFinalResponse('分析結果', turn.finalResponse);
+displayFinalResponse('JSON文字列', turn.finalResponse);
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
+const parsed = parseJson<{ averageScore: number; handsOnCompletionRate: number }>(turn.finalResponse);
+console.log('\n平均満足度:', parsed.averageScore);
+console.log('ハンズオン完了率:', parsed.handsOnCompletionRate);

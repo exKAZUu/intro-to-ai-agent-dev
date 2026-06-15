@@ -1,5 +1,5 @@
 /**
- * Codexに一時ワークスペースのファイルを編集させ、コードベース操作の基本を確認する例。
+ * Codexにバグ修正と検証コマンド実行を任せ、書く・試す・直す開発ループを体験する例。
  */
 
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
@@ -8,18 +8,16 @@ import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
+import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-edit-'));
-const planPath = join(workspace, 'lecture_plan.md');
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-'));
+const scriptPath = join(workspace, 'survey.js');
 await writeFile(
-  planPath,
+  scriptPath,
   `
-# 第3回講義案
-
-- tools
-- MCP
-- guardrails
+const scores = [5, 3, 4, 2, 5];
+const average = scores.reduce((sum, score) => sum + score, 0);
+console.log("average=" + average);
 `.trim()
 );
 
@@ -33,13 +31,15 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-lecture_plan.md を編集し、各題材に23分の演習時間と1文の学習目標を追加してください。
-90分講義の残り時間で導入と振り返りができるように、最後に合計演習時間も追記してください。
+survey.js は平均満足度を出すつもりですが、今は合計を出してしまいます。
+バグを修正し、node survey.js を実行して average=3.8 になることを確認してください。
+確認したコマンドと結果を最終回答にも含めてください。
 `.trim());
 
 console.log('\nWorkspace:', workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 編集後のファイル ===\n');
-console.log(await readFile(planPath, 'utf8'));
+console.log('\n=== 修正後のsurvey.js ===\n');
+console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
+displayCommandExecutions(turn.items);

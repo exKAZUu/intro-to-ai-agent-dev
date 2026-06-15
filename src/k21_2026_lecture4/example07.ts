@@ -1,61 +1,35 @@
 /**
- * Codexのコード実行結果をoutputSchemaで構造化し、lecture3のstructured output相当を実現する例。
+ * CodexのwebSearchModeを有効にし、前例のアンケート分析結果を外部情報で補強する例。
  */
-
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary, parseJson } from './helpers.js';
-
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-'));
-await writeFile(
-  join(workspace, 'survey.csv'),
-  `
-name,attendance_type,satisfaction,hardest_topic,hands_on_completed,request
-Alice,対面,5,tools,完了,実用例を増やしたい
-Bob,オンライン,3,MCP,未完了,接続手順を詳しく知りたい
-Carol,対面,4,MCP,完了,Excel連携を試したい
-Dave,録画,2,guardrails,未完了,失敗例があると理解しやすい
-Eve,対面,5,tools,完了,業務に近い題材がよい
-`.trim()
-);
-
-const SurveySchema = {
-  type: 'object',
-  properties: {
-    averageScore: { type: 'number' },
-    handsOnCompletionRate: { type: 'number' },
-    hardestTopics: { type: 'array', items: { type: 'string' } },
-    improvementActions: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
-  },
-  required: ['averageScore', 'handsOnCompletionRate', 'hardestTopics', 'improvementActions'],
-  additionalProperties: false,
-} as const;
+import { displayFinalResponse, displayItemSummary, displayWebSearches } from './helpers.js';
 
 const codex = new Codex();
 const thread = codex.startThread({
-  workingDirectory: workspace,
-  skipGitRepoCheck: true,
-  sandboxMode: 'workspace-write',
+  workingDirectory: process.cwd(),
+  sandboxMode: 'read-only',
   approvalPolicy: 'never',
+  webSearchMode: 'cached',
   modelReasoningEffort: 'low',
 });
 
 const turn = await thread.run(
   `
-survey.csv をスクリプトで分析し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
-平均満足度とハンズオン完了率は、必ず作成したスクリプトの計算結果を使ってください。
-`.trim(),
-  { outputSchema: SurveySchema }
+前の例では、第3回の試行授業アンケートから以下の結果を得ました。
+
+- 平均満足度: 3.8
+- 最頻出の難所: tools, MCP
+- 改善アクション: toolsの利用手順を整理する、MCPの基本概念と接続手順を補足する、toolsとMCPを組み合わせた演習を追加する
+
+web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式情報を確認し、このアンケート結果に基づく次回改善案を3つに絞ってください。
+各改善案には、どの難所に対応するか、授業で追加する具体的な演習、参照した情報源を含めてください。
+参照先は OpenAI 公式ドキュメントまたは Agents SDK JavaScript/TypeScript 公式ドキュメントに限定してください。
+ファイルは変更しないでください。
+`.trim()
 );
 
-displayFinalResponse('JSON文字列', turn.finalResponse);
+displayFinalResponse('調査結果', turn.finalResponse);
 displayItemSummary(turn.items);
-displayFileChanges(turn.items);
-displayCommandExecutions(turn.items);
-const parsed = parseJson<{ averageScore: number; handsOnCompletionRate: number }>(turn.finalResponse);
-console.log('\n平均満足度:', parsed.averageScore);
-console.log('ハンズオン完了率:', parsed.handsOnCompletionRate);
+displayWebSearches(turn.items);
