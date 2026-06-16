@@ -1,5 +1,5 @@
 /**
- * Excel MCP Serverを使い、アンケートデータをExcelファイルとして作成・分析する例。
+ * Excel MCP Serverを使い、アンケート分析結果を反映したExcelファイルを作成する例。
  */
 
 import { copyFile, readFile } from 'node:fs/promises';
@@ -17,30 +17,34 @@ const mcpServer = new MCPServerStdio({
 await mcpServer.connect();
 
 try {
+  const surveyCsv = await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
+  const analysis = analyzeSurvey(parseSurveyCsv(surveyCsv));
+  const workbookPath = await createSurveyWorkbook();
   const agent = new Agent({
     name: 'Survey workbook analyst',
     model: 'gpt-5.4-nano',
     modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
     mcpServers: [mcpServer],
   });
-
-  const surveyCsv = await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
-  const workbookPath = await createSurveyWorkbook();
   const response = await run(
     agent,
     `
-あなたは演習アンケートのExcel分析担当です。
-Excel MCP Serverのツールで、事前に作成済みの新しいExcelファイル ${workbookPath} に Survey シートを追加し、次のCSVを書き込んでください。
-その後、平均満足度、最頻出の難所、改善コメントを報告してください。
-既存の scores.xlsx は更新しないでください。
-最後は改善コメントで締め、追加質問や次の作業提案は書かないでください。
+あなたは演習アンケートのExcel出力担当です。
+Excel MCP Serverのツールだけを使って、事前に作成済みの新しいExcelファイル ${workbookPath} を更新してください。
 
-${surveyCsv}
+1. 既存の Summary シートの ${rangeOf(analysis.summaryRows)} に、次の2次元配列をそのまま書き込む。
+${JSON.stringify(analysis.summaryRows)}
+
+2. 新しい SurveyAnalysis シートを作成し、${rangeOf(analysis.detailRows)} に、次の2次元配列をそのまま書き込む。
+${JSON.stringify(analysis.detailRows)}
+
+3. 最後に、作成したExcelファイルのパス、平均満足度、最頻出の難所、追加した列を短く報告してください。
+追加質問や次の作業提案は書かないでください。
 `.trim(),
     { maxTurns: 10 }
   );
   displayResult(response.finalOutput);
-  displayComparison(workbookPath);
+  displayComparison(workbookPath, analysis);
 } finally {
   await mcpServer.close();
 }
@@ -50,15 +54,155 @@ function displayResult(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function displayComparison(workbookPath: string) {
+function displayComparison(workbookPath: string, analysis: SurveyAnalysis) {
   console.log('\n=== MCPなし/ありの比較 ===\n');
-  console.log('なし: LLMはCSVの集計結果を文章で返せても、ExcelファイルにSurveyシートを書き込む要件は満たせません。');
-  console.log(`あり: Excel MCP Server のツールで新しい workbook に Survey シートを書き込みました: ${workbookPath}`);
+  console.log(
+    `なし: 解析結果は文章で説明できても、平均満足度 ${analysis.averageSatisfaction} や最頻出トピック ${analysis.topTopics.join(
+      ' / '
+    )} を列として反映したExcelファイルは作れません。`
+  );
+  console.log(`あり: Excel MCP Server のツールで、解析結果を反映した workbook を作成しました: ${workbookPath}`);
 }
 
 async function createSurveyWorkbook() {
   const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
-  const workbookPath = fileURLToPath(new URL(`./survey-scores-${timestamp}.xlsx`, import.meta.url));
-  await copyFile(new URL('./scores.xlsx', import.meta.url), workbookPath);
+  const workbookPath = fileURLToPath(new URL(`./survey-analysis-${timestamp}.xlsx`, import.meta.url));
+  await copyFile(new URL('./survey-template.xlsx', import.meta.url), workbookPath);
   return workbookPath;
 }
+
+function parseSurveyCsv(csv: string): SurveyRow[] {
+  const [headerLine, ...lines] = csv.trim().split('\n');
+  if (headerLine == null) {
+    throw new Error('survey.csv is empty.');
+  }
+  const headers = headerLine.split(',');
+  return lines.map((line) => {
+    const values = line.split(',');
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])) as SurveyRow;
+  });
+}
+
+function analyzeSurvey(rows: SurveyRow[]): SurveyAnalysis {
+  const averageSatisfaction = roundToOneDecimal(
+    rows.reduce((sum, row) => sum + Number(row.satisfaction), 0) / rows.length
+  );
+  const topicCounts = countBy(rows.map((row) => row.hardest_topic));
+  const maxTopicCount = Math.max(...Object.values(topicCounts));
+  const topTopics = Object.entries(topicCounts)
+    .filter(([, count]) => count === maxTopicCount)
+    .map(([topic]) => topic);
+  const incompleteCount = rows.filter((row) => row.hands_on_completed === '未完了').length;
+  const lowSatisfactionCount = rows.filter((row) => Number(row.satisfaction) <= 3).length;
+  const detailRows = [
+    [
+      'participant_id',
+      'attendance_type',
+      'experience_level',
+      'satisfaction',
+      'hardest_topic',
+      'hands_on_completed',
+      'prep_minutes',
+      'request',
+      'satisfaction_gap_from_average',
+      'follow_up_priority',
+      'hardest_topic_is_most_frequent',
+      'follow_up_focus',
+    ],
+    ...rows.map((row) => [
+      row.participant_id,
+      row.attendance_type,
+      row.experience_level,
+      Number(row.satisfaction),
+      row.hardest_topic,
+      row.hands_on_completed,
+      Number(row.prep_minutes),
+      row.request,
+      roundToOneDecimal(Number(row.satisfaction) - averageSatisfaction),
+      needsFollowUp(row) ? '要フォロー' : '通常',
+      topTopics.includes(row.hardest_topic) ? '最多トピック' : '',
+      focusForTopic(row.hardest_topic),
+    ]),
+  ];
+  const summaryRows = [
+    ['項目', '値'],
+    ['回答数', rows.length],
+    ['平均満足度', averageSatisfaction],
+    ['最頻出の難所', topTopics.join(' / ')],
+    ['ハンズオン未完了数', incompleteCount],
+    ['満足度3以下の回答数', lowSatisfactionCount],
+    ['', ''],
+    ['難所トピック', '回答数'],
+    ...Object.entries(topicCounts).sort(([, a], [, b]) => b - a),
+    ['', ''],
+    ['追加列', '意味'],
+    ['satisfaction_gap_from_average', '個別満足度と平均満足度の差'],
+    ['follow_up_priority', '低満足度またはハンズオン未完了の参加者を要フォローに分類'],
+    ['hardest_topic_is_most_frequent', '全体で最も多かった難所トピックに該当するか'],
+    ['follow_up_focus', '難所トピックに応じた補足観点'],
+  ];
+  return { averageSatisfaction, detailRows, summaryRows, topTopics };
+}
+
+function countBy(values: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const value of values) {
+    counts[value] = (counts[value] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function needsFollowUp(row: SurveyRow): boolean {
+  return Number(row.satisfaction) <= 3 || row.hands_on_completed === '未完了';
+}
+
+function focusForTopic(topic: string): string {
+  const focuses: Record<string, string> = {
+    MCP: 'MCP接続手順と既存ツール連携の補足',
+    guardrails: '入出力guardrailの判断基準と失敗例',
+    'structured output': 'スキーマ設計からアプリ連携までの補足',
+    tools: 'ツール設計とエラー処理の補足',
+  };
+  return focuses[topic] ?? '個別コメントの確認';
+}
+
+function rangeOf(rows: unknown[][]): string {
+  const [headerRow] = rows;
+  if (headerRow == null) {
+    throw new Error('Excel output rows must not be empty.');
+  }
+  return `A1:${columnName(headerRow.length)}${rows.length}`;
+}
+
+function columnName(columnCount: number): string {
+  let remaining = columnCount;
+  let name = '';
+  while (remaining > 0) {
+    remaining -= 1;
+    name = String.fromCharCode(65 + (remaining % 26)) + name;
+    remaining = Math.floor(remaining / 26);
+  }
+  return name;
+}
+
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+type SurveyRow = {
+  participant_id: string;
+  attendance_type: string;
+  experience_level: string;
+  satisfaction: string;
+  hardest_topic: string;
+  hands_on_completed: string;
+  prep_minutes: string;
+  request: string;
+};
+
+type SurveyAnalysis = {
+  averageSatisfaction: number;
+  detailRows: (number | string)[][];
+  summaryRows: (number | string)[][];
+  topTopics: string[];
+};

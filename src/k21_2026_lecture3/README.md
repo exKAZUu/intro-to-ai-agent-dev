@@ -25,7 +25,7 @@
    - `example11.ts`: Input guardrail と Output guardrail で入出力境界を作ります。
    - `example12.ts`: Tracing でツール利用を含む改善フローを記録します。
 7. 外部ツール連携と総合演習に進む
-   - `example13.ts`: Excel MCP Server でExcelファイルを作成・分析します。
+   - `example13.ts`: Excel MCP Server でアンケート分析結果を反映したExcelファイルを作成します。
    - `example14.ts`: Playwright MCP Server でブラウザを操作し、公式ページを確認します。
    - `example15.ts`: Streamable HTTP MCP Server でリモートのドメイン確認ツールを使います。
    - `example16.ts`: 検索、集計ツール、Guardrails、Structured output、Tracing を組み合わせます。
@@ -69,8 +69,8 @@
   - 概要: Tracing でツール利用を含む改善フローを記録する例です。
   - 学習のねらい: Tracing なしでは実行後の追跡が難しい一方、Tracing ありならTrace名とツール呼び出しをデバッグや振り返りに使えることを確認します。
 - `example13.ts`
-  - 概要: Excel MCP Server を使い、アンケートデータをExcelファイルとして作成・分析する例です。
-  - 学習のねらい: MCP なしでは文章での集計に留まりますが、MCP ありならExcelファイルへの書き込みまで要件として満たせることを確認します。
+  - 概要: Excel MCP Server を使い、`survey.csv` の解析結果を反映したExcelファイルを作成する例です。
+  - 学習のねらい: MCP なしでは文章での集計に留まりますが、MCP ありなら平均満足度との差分、フォロー優先度、補足観点などの列を追加したExcelファイルを作れることを確認します。
 - `example14.ts`
   - 概要: Playwright MCP Server を使い、Agents SDK のMCP公式ページをブラウザで開いて確認する例です。
   - 学習のねらい: MCP なしではURLやページ内容を推測するだけになりがちですが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、表示された公式ページに基づいて教材観点を整理できることを確認します。
@@ -85,6 +85,6 @@
 
 - `example06.ts` は Tavily API キーが必要です。
 - `survey.csv` は20名分の演習アンケートデータです。
-- `scores.xlsx` は `example13.ts` がコピー元として使うExcelファイルです。
-- `example13.ts` は `survey.csv` と `scores.xlsx` をもとに、新しい `survey-scores-*.xlsx` を作成します。
+- `survey-template.xlsx` は `example13.ts` がコピー元として使う空のExcelテンプレートです。
+- `example13.ts` は `survey.csv` と `survey-template.xlsx` をもとに、新しい `survey-analysis-*.xlsx` を作成します。
 - `example14.ts` は事前に `npx --yes playwright install chromium` を実行しておく必要があります。
