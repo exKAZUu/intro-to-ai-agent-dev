@@ -84,7 +84,6 @@ ${requestBase}
 );
 displayResults(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput);
 displayToolCalls(responseWithTavily.newItems);
-displayComparison(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput, responseWithTavily.newItems);
 
 function displayResults(finalOutputWithoutTavily: unknown, finalOutputWithTavily: unknown) {
   console.log('\n=== Tavilyなしの最終出力 ===\n');
@@ -98,26 +97,8 @@ function displayToolCalls(items: { toJSON(): unknown }[]) {
   console.dir(extractTavilyToolCalls(items), { depth: null });
 }
 
-function displayComparison(finalOutputWithoutTavily: unknown, finalOutputWithTavily: unknown, items: { toJSON(): unknown }[]) {
-  const withoutTavilyText = outputToText(finalOutputWithoutTavily);
-  const withTavilyText = outputToText(finalOutputWithTavily);
-  const withoutTavilyUrlCount = countOfficialUrls(withoutTavilyText);
-  const withTavilyUrlCount = countOfficialUrls(withTavilyText);
-  const toolCalls = extractTavilyToolCalls(items);
-  const toolResultUrlCount = new Set(toolCalls.flatMap((call) => call.urls)).size;
-  console.log('\n=== Tavily検索ツールなし/ありの比較 ===\n');
-  console.log(`なし: 最終出力に含まれる公式URLは ${withoutTavilyUrlCount} 件です。外部検索ツールを使っていないため、URLや内容は実行時に確認されていません。`);
-  console.log(
-    `あり: tavily_search を ${toolCalls.length} 回呼び出し、検索結果として公式URLを ${toolResultUrlCount} 件取得し、最終出力に公式URLを ${withTavilyUrlCount} 件含めています。`
-  );
-}
-
 function outputToText(finalOutput: unknown) {
   return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-}
-
-function countOfficialUrls(text: string) {
-  return text.match(/https?:\/\/(?:developers\.openai\.com|platform\.openai\.com|openai\.github\.io)\/[^\s)]+/g)?.length ?? 0;
 }
 
 function extractTavilyToolCalls(items: { toJSON(): unknown }[]) {
