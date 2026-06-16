@@ -29,8 +29,7 @@ const agent = new Agent({
 
 const traceName = 'workshop_improvement_trace';
 const prompt = `
-survey.csv の演習アンケートを分析し、改善コメントを1行で返してください。
-満足度平均、ハンズオン完了率、最多の難所と件数を含めてください。
+survey.csv の演習アンケートから、次回に向けた改善コメントのみを1行で返してください。
 `.trim();
 
 const responseWithoutTrace = await run(agent, prompt, { maxTurns: 5 });
