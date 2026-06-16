@@ -27,29 +27,32 @@ const agent = new Agent({
 
 const surveyRows = await readSurveyRows();
 const traceName = 'workshop_improvement_trace';
-
-await withTrace(traceName, async () => {
-  const response = await run(
-    agent,
-    `
-次の演習アンケートを分析し、改善コメントを簡潔に返してください。
+const prompt = `
+次の演習アンケートを分析し、改善コメントを1行で返してください。
 満足度平均は必ず compute_average を使ってください。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} です。
 難所は ${surveyRows.map((row) => row.hardestTopic).join(', ')} です。
 ハンズオン未完了者は${surveyRows.filter((row) => !row.handsOnCompleted).length}人で、自由記述では実用例、後続処理、失敗例、接続手順への要望が多いです。
-`.trim(),
-    { maxTurns: 5 }
-  );
-  console.log('\n=== Trace対象の改善フロー ===\n');
-  console.log(response.finalOutput);
+`.trim();
+
+const responseWithoutTrace = await run(agent, prompt, { maxTurns: 5 });
+let responseWithTrace: typeof responseWithoutTrace | undefined;
+
+await withTrace(traceName, async () => {
+  responseWithTrace = await run(agent, prompt, { maxTurns: 5 });
 });
 
-console.log('\n=== Traceの確認ポイント ===\n');
-console.log(`Trace名: ${traceName}`);
-console.log('OpenAIのTraces画面で、このTrace名、エージェント名、compute_averageのツール呼び出しを確認してください。');
-console.log('\n=== Tracingなし/ありの比較 ===\n');
-console.log('なし: 実行後に、どの処理が同じ改善フローに属するかを後から追跡しにくくなります。');
-console.log(`あり: withTrace により Trace名「${traceName}」でツール呼び出しを含む一連の処理を確認できます。`);
+console.log('\n=== なし ===\n');
+console.log('trace: なし');
+displayFinalOutput(responseWithoutTrace.finalOutput);
+console.log('\n=== あり ===\n');
+console.log(`trace: ${traceName}`);
+displayFinalOutput(responseWithTrace?.finalOutput);
+console.log('確認: Traces画面でTrace名、エージェント名、compute_averageを確認できます。');
+
+function displayFinalOutput(finalOutput: unknown) {
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
 
 async function readSurveyRows() {
   const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');

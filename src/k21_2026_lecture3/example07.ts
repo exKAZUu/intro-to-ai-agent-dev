@@ -35,7 +35,14 @@ const computeSurveyStats = tool({
   },
 });
 
-const agent = new Agent({
+const agentWithoutStructuredOutput = new Agent({
+  name: 'Natural language survey analyst',
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [computeSurveyStats],
+});
+
+const agentWithStructuredOutput = new Agent({
   name: 'Structured survey analyst',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
@@ -48,32 +55,44 @@ const survey = {
   requestSummary: surveyRows.map((row) => row.request),
 };
 
-const response = await run(
-  agent,
-  `
+const prompt = `
 次の演習アンケートを分析し、指定された構造で返してください。
 回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats で計算してください。
 recommendedTopics は tools、structured output、guardrails、MCP から3つ選んでください。
+自然文で返す場合も、出力は1行にしてください。
 
 ${JSON.stringify(survey)}
-`.trim(),
-  { maxTurns: 5 }
-);
+`.trim();
 
-console.log('\n=== パース済みオブジェクト ===\n');
-console.dir(response.finalOutput, { depth: null });
-console.log('\n平均満足度だけをプログラムから参照:', response.finalOutput?.averageScore);
-console.log('ハンズオン完了率だけをプログラムから参照:', response.finalOutput?.handsOnCompletionRate);
-displayComparison(response.finalOutput);
+const responseWithoutStructuredOutput = await run(agentWithoutStructuredOutput, prompt, { maxTurns: 5 });
+const responseWithStructuredOutput = await run(agentWithStructuredOutput, prompt, { maxTurns: 5 });
 
-function displayComparison(finalOutput: unknown) {
-  console.log('\n=== Structured outputなし/ありの比較 ===\n');
-  console.log('なし: 自然文回答では、平均満足度や完了率を後続プログラムから安全に参照するには追加のパース処理が必要です。');
-  console.log(
-    typeof finalOutput === 'object' && finalOutput !== null
-      ? 'あり: outputType により、averageScore や handsOnCompletionRate を型付きオブジェクトのプロパティとして参照できます。'
-      : 'あり: outputType を指定しているため、本来は型付きオブジェクトとして参照できます。'
-  );
+displayComparison({
+  withStructuredOutput: responseWithStructuredOutput.finalOutput,
+  withoutStructuredOutput: responseWithoutStructuredOutput.finalOutput,
+});
+
+function displayComparison(results: { withStructuredOutput: unknown; withoutStructuredOutput: unknown }) {
+  console.log('\n=== なし ===\n');
+  console.log(`型: ${typeof results.withoutStructuredOutput}`);
+  displayFinalOutput(results.withoutStructuredOutput);
+  console.log('\n=== あり ===\n');
+  console.log(`型: ${typeof results.withStructuredOutput}`);
+  if (isSurveyAnalysis(results.withStructuredOutput)) {
+    console.log(
+      `averageScore=${results.withStructuredOutput.averageScore}, handsOnCompletionRate=${results.withStructuredOutput.handsOnCompletionRate}, hardestTopics=${results.withStructuredOutput.hardestTopics.join('/')}`
+    );
+  } else {
+    displayFinalOutput(results.withStructuredOutput);
+  }
+}
+
+function displayFinalOutput(finalOutput: unknown) {
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
+
+function isSurveyAnalysis(value: unknown): value is z.infer<typeof SurveyAnalysis> {
+  return typeof value === 'object' && value !== null && 'averageScore' in value && 'handsOnCompletionRate' in value && 'hardestTopics' in value;
 }
 
 async function readSurveyRows() {

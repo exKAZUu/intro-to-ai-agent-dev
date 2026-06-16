@@ -21,7 +21,8 @@ const computeAverage = tool({
 const planningAgent = new Agent({
   name: 'Improvement planning agent',
   handoffDescription: 'アンケート結果と学習サイト利用ログをもとに、改善案を作成します。',
-  instructions: 'ワークショップの改善案を、90分ワークショップの中で実行できる具体策としてまとめてください。追加質問や次の作業提案は書かないでください。',
+  instructions:
+    'ワークショップの改善案を、90分ワークショップの中で実行できる具体策として1つだけ返してください。出力は「平均満足度」「改善案」だけを1行80字以内で書いてください。追加質問や次の作業提案は書かないでください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
@@ -37,12 +38,28 @@ const analysisAgent = new Agent({
   handoffs: [planningAgent],
 });
 
+const agentWithoutHandoff = new Agent({
+  name: 'Single workshop improvement agent',
+  instructions: `
+アンケート集計と改善案作成を1人で行ってください。
+満足度平均は compute_average を使ってください。
+出力は「平均満足度」「改善案」だけを1行で書いてください。
+改善案は1つだけ、80字以内にしてください。
+追加質問や次の作業提案は書かないでください。
+`.trim(),
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [computeAverage],
+});
+
 const triageAgent = Agent.create({
   name: 'Workshop improvement triage',
   instructions: `
 ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
 依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
-最終回答は改善案で締め、追加質問や次の作業提案は書かないでください。
+最終回答は「平均満足度」「改善案」だけを1行で書いてください。
+改善案は1つだけ、80字以内にしてください。
+追加質問や次の作業提案は書かないでください。
 `.trim(),
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
@@ -53,6 +70,7 @@ const surveyRows = await readSurveyRows();
 const request = `
 次のAIエージェント開発ワークショップ結果を専門エージェントへ委譲して分析し、90分内で実行できる改善案で締めてください。
 満足度平均は compute_average を使ってください。追加質問や次の作業提案は書かないでください。
+最終出力は1行80字以内にしてください。
 
 演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} でした。
@@ -62,23 +80,14 @@ const request = `
 学習サイトでは演習ページのアクセスが多く、guardrailsの滞在時間が短めでした。
 `.trim();
 
-const response = await run(triageAgent, request, { maxTurns: 8 });
-displayHandoffs(response.newItems);
-console.log('\n=== Handoffによる改善案 ===\n');
-console.log(response.finalOutput);
-displayComparison(response.newItems);
+const responseWithoutHandoff = await run(agentWithoutHandoff, request, { maxTurns: 5 });
+const responseWithHandoff = await run(triageAgent, request, { maxTurns: 8 });
 
-function displayHandoffs(items: { toJSON(): unknown }[]) {
-  console.log('\n=== Handoffの観察ログ ===\n');
-  console.dir(extractHandoffs(items), { depth: null });
-}
-
-function displayComparison(items: { toJSON(): unknown }[]) {
-  const handoffCount = extractHandoffs(items).length;
-  console.log('\n=== Handoffなし/ありの比較 ===\n');
-  console.log('なし: 1つのエージェントに集計と改善案作成を同時に任せるため、どこで専門処理に切り替わったかを観察できません。');
-  console.log(`あり: アンケート分析担当と改善計画担当へ ${handoffCount} 回委譲し、役割分担をログで確認できます。`);
-}
+displayComparison({
+  handoffs: extractHandoffs(responseWithHandoff.newItems),
+  withHandoff: responseWithHandoff.finalOutput,
+  withoutHandoff: responseWithoutHandoff.finalOutput,
+});
 
 function extractHandoffs(items: { toJSON(): unknown }[]) {
   return items.flatMap((item) => {
@@ -97,6 +106,23 @@ function extractHandoffs(items: { toJSON(): unknown }[]) {
       },
     ];
   });
+}
+
+function displayComparison(results: { handoffs: { from?: string; to?: string }[]; withHandoff: unknown; withoutHandoff: unknown }) {
+  console.log('\n=== なし ===\n');
+  console.log(`handoff: 0回`);
+  displayFinalOutput(results.withoutHandoff);
+  console.log('\n=== あり ===\n');
+  console.log(`handoff: ${results.handoffs.length}回 ${formatHandoffs(results.handoffs)}`);
+  displayFinalOutput(results.withHandoff);
+}
+
+function formatHandoffs(handoffs: { from?: string; to?: string }[]) {
+  return handoffs.map((handoff) => `${handoff.from} -> ${handoff.to}`).join(' / ');
+}
+
+function displayFinalOutput(finalOutput: unknown) {
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
 async function readSurveyRows() {
