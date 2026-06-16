@@ -25,6 +25,7 @@ const prompt = `
 次のCSVを集計してください。
 全体、参加形態別、最多の hardest_topic を3行で答えてください。
 全体と参加形態別には、回答者数、平均満足度、ハンズオン完了率を含めてください。
+最多の hardest_topic が同数なら、すべて挙げてください。
 
 ${csv}
 `.trim();
@@ -33,17 +34,30 @@ const responseWithoutCodeInterpreter = await run(agentWithoutCodeInterpreter, pr
 const responseWithCodeInterpreter = await run(agentWithCodeInterpreter, prompt, { maxTurns: 6 });
 
 displayComparison({
+  codeInterpreterCalls: extractCodeInterpreterCalls(responseWithCodeInterpreter.newItems),
   withCodeInterpreter: responseWithCodeInterpreter.finalOutput,
   withoutCodeInterpreter: responseWithoutCodeInterpreter.finalOutput,
 });
 
-function displayComparison(results: { withCodeInterpreter: unknown; withoutCodeInterpreter: unknown }) {
+function displayComparison(results: {
+  codeInterpreterCalls: { status?: string }[];
+  withCodeInterpreter: unknown;
+  withoutCodeInterpreter: unknown;
+}) {
   console.log('\n=== なし ===\n');
   displayFinalOutput(results.withoutCodeInterpreter);
   console.log('\n=== あり ===\n');
+  console.log(`code interpreter: ${results.codeInterpreterCalls.length}回`);
   displayFinalOutput(results.withCodeInterpreter);
 }
 
 function displayFinalOutput(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
+
+function extractCodeInterpreterCalls(items: { toJSON(): unknown }[]) {
+  return items.flatMap((item) => {
+    const itemJson = item.toJSON() as { rawItem?: { status?: string; type?: string } };
+    return itemJson.rawItem?.type === 'hosted_tool_call' ? [{ status: itemJson.rawItem.status }] : [];
+  });
 }

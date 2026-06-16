@@ -12,7 +12,7 @@ const calc = tool({
   description: '四則演算だけで構成されたJavaScript式を計算します。',
   parameters: z
     .object({
-      expression: z.string().describe('例: 1234567 * 37 + 891011 * 19'),
+      expression: z.string().describe('例: 1200 * 8 + 3400'),
     })
     .strict(),
   strict: true,

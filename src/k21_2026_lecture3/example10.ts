@@ -3,20 +3,9 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { Agent, run, tool } from '@openai/agents';
-import { z } from 'zod';
+import { Agent, run } from '@openai/agents';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
-
-const computeAverage = tool({
-  name: 'compute_average',
-  description: '数値配列の平均値を計算します。',
-  parameters: z.object({ values: z.array(z.number()).min(1) }).strict(),
-  strict: true,
-  execute({ values }) {
-    return { average: values.reduce((sum, value) => sum + value, 0) / values.length };
-  },
-});
 
 const finalAnswerInstruction =
   '最終回答は「平均満足度<数値> 改善案: ...」の1行。改善案は35字以内で、90分内に実行できる具体策を1つだけ書いてください。人数、略語、追加質問は書かないでください。';
@@ -36,7 +25,6 @@ const analysisAgent = new Agent({
     '満足度平均、難しかったトピック、要望を整理して Improvement planning agent に委譲してください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [computeAverage],
   handoffs: [planningAgent],
 });
 
@@ -45,7 +33,6 @@ const agentWithoutHandoff = new Agent({
   instructions: `満足度平均を含めて改善案を作成してください。${finalAnswerInstruction}`,
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [computeAverage],
 });
 
 const triageAgent = Agent.create({
