@@ -28,13 +28,13 @@ try {
   const response = await run(
     agent,
     `
-${workbookPath} の SurveyResponses シートを分析し、SurveyAnalysis シートに回答別の分析表と集計を作成してください。
+${workbookPath} に入っているアンケート回答を分析し、SurveyAnalysis シートを更新してください。
 
-回答別の分析表には participant_id、satisfaction、hardest_topic、request、follow_up_priority を含めてください。
-follow_up_priority は、satisfaction が3以下、または hands_on_completed が「未完了」なら「要フォロー」、それ以外は「通常」にしてください。
-集計には回答数、平均満足度、最頻出の難所、follow_up_priority の意味だけを含めてください。
-最頻出の難所はトピック名だけを書き、件数は書かないでください。同数なら " / " でつないでください。
-最後に、ファイルパス、平均満足度、最頻出の難所、追加した列を短く報告してください。
+元データは SurveyResponses シートにあります。回答ごとの一覧として、participant_id、satisfaction、hardest_topic、request に加えて、follow_up_priority を作成してください。follow_up_priority は、満足度が3以下、またはハンズオンが未完了の回答を「要フォロー」、それ以外を「通常」とします。
+
+一覧の下には、回答数、平均満足度、最頻出の難所、follow_up_priority の意味をまとめてください。最頻出の難所はトピック名だけを書き、件数は書かないでください。同数のトピックがある場合は " / " でつないでください。
+
+更新後に、作成したファイルのパス、平均満足度、最頻出の難所、追加した列を短く報告してください。
 `.trim(),
     { maxTurns: 30 }
   );
