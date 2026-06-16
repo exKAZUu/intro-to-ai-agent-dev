@@ -40,21 +40,22 @@ function buildPrompt(csvText: string, options: { instruction: string }) {
   return `
 あなたはワークショップの改善担当です。
 ${options.instruction}
-次の演習後アンケートを集計し、回答者数、平均満足度、ハンズオン完了率、最難関トピック、参加形態ごとの傾向、改善優先度の高い施策を説明してください。
-最後は改善優先度の高い施策で締め、追加質問や次の作業提案は書かないでください。
+次の演習後アンケートを集計してください。
+出力は次の3行だけにしてください。説明、根拠、追加質問、次の作業提案は書かないでください。
+
+全体: 回答者数、平均満足度、ハンズオン完了率
+参加形態: 教室参加/オンライン参加/録画視聴それぞれの人数、平均満足度、ハンズオン完了率
+最難関: 最多の hardest_topic と件数
 
 ${csvText}
 `.trim();
 }
 
 function displayComparison(results: { withCodeInterpreter: unknown; withoutCodeInterpreter: unknown }) {
-  console.log('\n=== Code Interpreterなしの最終出力 ===\n');
+  console.log('\n=== なし ===\n');
   displayFinalOutput(results.withoutCodeInterpreter);
-  console.log('\n=== Code Interpreterありの最終出力 ===\n');
+  console.log('\n=== あり ===\n');
   displayFinalOutput(results.withCodeInterpreter);
-  console.log('\n=== Code Interpreterなし/ありの比較ポイント ===\n');
-  console.log('なし: CSVを自然文として読むだけで、集計や並べ替えをLLMの推論に任せます。');
-  console.log('あり: code_interpreter に表計算を任せ、回答者数・平均・完了率・最頻出トピックを計算結果として回答に反映します。');
 }
 
 function displayFinalOutput(finalOutput: unknown) {
