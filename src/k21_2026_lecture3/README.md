@@ -19,7 +19,7 @@
    - `example07.ts`: OpenAI Hosted web search の有無を比較します。
 5. 表形式データと構造化結果を扱う
    - `example08.ts`: Hosted code interpreter の有無を比較して `survey.csv` を集計します。
-   - `example09.ts`: Structured output の有無を比較し、集計結果を型付きオブジェクトとして受け取ります。
+   - `example09.ts`: Structured output の有無を比較し、集計済みデータの分析結果を型付きオブジェクトとして受け取ります。
 6. エージェントらしい制御に広げる
    - `example10.ts`: Handoff の有無を比較し、分析担当と改善計画担当に分けます。
    - `example11.ts`: Guardrails の有無を比較し、Input guardrail と Output guardrail で入出力境界を作ります。
@@ -57,8 +57,8 @@
   - 概要: Hosted code interpreter なし/ありで、`survey.csv` の演習アンケート集計を比較する例です。
   - 学習のねらい: 自然文処理だけでは再現しにくい表形式データの集計や並べ替えを、code interpreter に任せると分析結果として確認できることを学びます。
 - `example09.ts`
-  - 概要: Structured output なし/ありで、集計ツールが返した `survey.csv` の分析結果の扱いを比較する例です。
-  - 学習のねらい: 自然文回答では後続処理のためにパースが必要ですが、Structured output なら指定したスキーマに沿った型付きオブジェクトとして直接参照できることを確認します。
+  - 概要: Structured output なし/ありで、ホスト側で集計した `survey.csv` の分析結果の扱いを比較する例です。
+  - 学習のねらい: 自然文回答では後続処理のためにパースが必要ですが、Structured output なら指定したスキーマに沿った提案を型付きオブジェクトとして受け取り、コード側の集計値と結合できることを確認します。
 - `example10.ts`
   - 概要: Handoff なし/ありで、アンケート分析担当と改善計画担当の専門エージェント分割を比較する例です。
   - 学習のねらい: 1つのエージェントでは役割切り替えを観察しにくい一方、Handoff なら分析担当と計画担当への委譲をログで確認できることを学びます。
