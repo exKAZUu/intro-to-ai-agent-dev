@@ -15,13 +15,16 @@ await mcpServer.connect();
 const agent = new Agent({
   name: 'Browser Assistant',
   instructions: 'あなたはブラウザ操作を行うアシスタントです。ユーザーの指示に従って、ウェブページを操作してください。',
-  model: 'gpt-5',
+  model: 'gpt-5.4-mini',
   mcpServers: [mcpServer],
 });
-await runAgent(agent, '新宿駅の周辺にある焼肉屋で明日19時から4名で予約できるお店を探して、予約画面を表示して。');
+await runAgent(
+  agent,
+  'ホットペッパーで、新宿駅の周辺にある予算5000円の焼肉屋を明日19時から4名で予約できるお店を探して、予約画面を表示して。'
+);
 
 async function runAgent(agent: Agent, prompt: string): Promise<void> {
-  const response = await run(agent, prompt);
+  const response = await run(agent, prompt, { maxTurns: 30 });
 
   if (response.newItems.length > 0) {
     console.log('\n=== 生成されたアイテム ===\n');
