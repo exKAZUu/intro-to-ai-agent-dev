@@ -53,29 +53,105 @@ const agent = new Agent({
   tools: [tavilySearch],
 });
 
-const response = await run(
-  agent,
-  `
+const agentWithoutTavily = new Agent({
+  name: 'Workshop topic researcher without Tavily',
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+});
+
+const requestBase = `
 あなたはAIエージェント開発ワークショップの教材調査担当です。
-必ず tavily_search を使い、OpenAI公式ドキュメントまたはAgents SDK JavaScript/TypeScript公式ドキュメントだけを根拠にしてください。
 tools、structured output、guardrails を、学習サイト利用ログ、参加者アンケート、改善計画のいずれかを扱う演習題材として整理してください。
 各題材について「教材で扱う理由」と「演習で作るもの」を1文ずつ書き、最後に公式参考URLだけを列挙して締めてください。
 Python SDKドキュメント、第三者記事、追加質問、次の作業提案は含めないでください。
+`.trim();
+
+const responseWithoutTavily = await run(
+  agentWithoutTavily,
+  `
+${requestBase}
+外部検索ツールは使えません。手元のモデル知識だけで回答してください。
 `.trim(),
   { maxTurns: 5 }
 );
-displayResult(response.finalOutput);
-displayComparison(response.finalOutput);
+const responseWithTavily = await run(
+  agent,
+  `
+${requestBase}
+必ず tavily_search を使い、OpenAI公式ドキュメントまたはAgents SDK JavaScript/TypeScript公式ドキュメントだけを根拠にしてください。
+`.trim(),
+  { maxTurns: 5 }
+);
+displayResults(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput);
+displayToolCalls(responseWithTavily.newItems);
+displayComparison(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput, responseWithTavily.newItems);
 
-function displayResult(finalOutput: unknown) {
-  console.log('\n=== Tavilyによる題材調査 ===\n');
-  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+function displayResults(finalOutputWithoutTavily: unknown, finalOutputWithTavily: unknown) {
+  console.log('\n=== Tavilyなしの最終出力 ===\n');
+  console.log(outputToText(finalOutputWithoutTavily));
+  console.log('\n=== Tavilyありの最終出力 ===\n');
+  console.log(outputToText(finalOutputWithTavily));
 }
 
-function displayComparison(finalOutput: unknown) {
-  const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-  const officialUrlCount = text.match(/https?:\/\/(?:developers\.openai\.com|platform\.openai\.com|openai\.github\.io)\/[^\s)]+/g)?.length ?? 0;
+function displayToolCalls(items: { toJSON(): unknown }[]) {
+  console.log('\n=== Tavily検索ツール呼び出し ===\n');
+  console.dir(extractTavilyToolCalls(items), { depth: null });
+}
+
+function displayComparison(finalOutputWithoutTavily: unknown, finalOutputWithTavily: unknown, items: { toJSON(): unknown }[]) {
+  const withoutTavilyText = outputToText(finalOutputWithoutTavily);
+  const withTavilyText = outputToText(finalOutputWithTavily);
+  const withoutTavilyUrlCount = countOfficialUrls(withoutTavilyText);
+  const withTavilyUrlCount = countOfficialUrls(withTavilyText);
+  const toolCalls = extractTavilyToolCalls(items);
+  const toolResultUrlCount = new Set(toolCalls.flatMap((call) => call.urls)).size;
   console.log('\n=== Tavily検索ツールなし/ありの比較 ===\n');
-  console.log('なし: 手元のモデル知識だけでは、公式ドキュメントを最新確認した根拠URL付き調査という要件を満たせません。');
-  console.log(`あり: tavily_search の結果を公式ドメインに絞り込み、公式URLを ${officialUrlCount} 件含む調査として確認できます。`);
+  console.log(`なし: 最終出力に含まれる公式URLは ${withoutTavilyUrlCount} 件です。外部検索ツールを使っていないため、URLや内容は実行時に確認されていません。`);
+  console.log(
+    `あり: tavily_search を ${toolCalls.length} 回呼び出し、検索結果として公式URLを ${toolResultUrlCount} 件取得し、最終出力に公式URLを ${withTavilyUrlCount} 件含めています。`
+  );
+}
+
+function outputToText(finalOutput: unknown) {
+  return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
+}
+
+function countOfficialUrls(text: string) {
+  return text.match(/https?:\/\/(?:developers\.openai\.com|platform\.openai\.com|openai\.github\.io)\/[^\s)]+/g)?.length ?? 0;
+}
+
+function extractTavilyToolCalls(items: { toJSON(): unknown }[]) {
+  const calls = new Map<string, { arguments?: string; urls: string[] }>();
+  for (const item of items) {
+    const itemJson = item.toJSON() as {
+      rawItem?: {
+        callId?: string;
+        name?: string;
+        arguments?: string;
+        output?: { text?: string };
+      };
+      output?: string;
+    };
+    const callId = itemJson.rawItem?.callId;
+    if (!callId || itemJson.rawItem?.name !== 'tavily_search') {
+      continue;
+    }
+    const current = calls.get(callId) ?? { urls: [] };
+    const output = itemJson.output ?? itemJson.rawItem.output?.text;
+    calls.set(callId, {
+      ...current,
+      ...(itemJson.rawItem.arguments ? { arguments: itemJson.rawItem.arguments } : {}),
+      urls: output ? extractUrlsFromToolOutput(output) : current.urls,
+    });
+  }
+  return [...calls.values()];
+}
+
+function extractUrlsFromToolOutput(output: string) {
+  try {
+    const parsed = JSON.parse(output) as { results?: { url?: unknown }[] };
+    return parsed.results?.flatMap((result) => (typeof result.url === 'string' ? [result.url] : [])) ?? [];
+  } catch {
+    return [];
+  }
 }
