@@ -26,7 +26,9 @@
    - `example12.ts`: Tracing でツール利用を含む改善フローを記録します。
 7. 外部ツール連携と総合演習に進む
    - `example13.ts`: Excel MCP Server でExcelファイルを作成・分析します。
-   - `example14.ts`: 検索、集計ツール、Guardrails、Structured output、Tracing を組み合わせます。
+   - `example14.ts`: Playwright MCP Server でブラウザを操作し、公式ページを確認します。
+   - `example15.ts`: Streamable HTTP MCP Server でリモートのドメイン確認ツールを使います。
+   - `example16.ts`: 検索、集計ツール、Guardrails、Structured output、Tracing を組み合わせます。
 
 ## プログラム例
 
@@ -70,6 +72,12 @@
   - 概要: Excel MCP Server を使い、アンケートデータをExcelファイルとして作成・分析する例です。
   - 学習のねらい: MCP なしでは文章での集計に留まりますが、MCP ありならExcelファイルへの書き込みまで要件として満たせることを確認します。
 - `example14.ts`
+  - 概要: Playwright MCP Server を使い、Agents SDK のMCP公式ページをブラウザで開いて確認する例です。
+  - 学習のねらい: MCP なしではURLやページ内容を推測するだけになりがちですが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、表示された公式ページに基づいて教材観点を整理できることを確認します。
+- `example15.ts`
+  - 概要: Streamable HTTP MCP Server の例として、Find a Domain MCP Server でワークショップ改善ページ向けのドメイン候補を確認します。
+  - 学習のねらい: MCP はローカルプロセスだけでなくリモートHTTPサーバーにも接続でき、モデル単体では確認できない外部サービスの結果を回答に組み込めることを確認します。
+- `example16.ts`
   - 概要: Hosted web search、アクセスログ集計、アンケート集計、input guardrail、structured output、tracing を組み合わせた総合例です。
   - 学習のねらい: このディレクトリで扱う主要概念を統合し、公式情報の根拠URLも含む実務に近い改善ワークフローとして構成する方法を学びます。
 
@@ -79,3 +87,4 @@
 - `survey.csv` は20名分の演習アンケートデータです。
 - `scores.xlsx` は `example13.ts` がコピー元として使うExcelファイルです。
 - `example13.ts` は `survey.csv` と `scores.xlsx` をもとに、新しい `survey-scores-*.xlsx` を作成します。
+- `example14.ts` は事前に `npx --yes playwright install chromium` を実行しておく必要があります。
