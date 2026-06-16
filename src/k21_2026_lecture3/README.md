@@ -1,8 +1,8 @@
 # k21_2026_lecture3
 
-ワークショップのプログラム例です。現行版 `../k21_2026_lecture2` で扱う Responses API の基本、会話履歴、instructions、推論設定の続きとして、Function Calling から Agents SDK へ段階的に進みます。
+ワークショップのプログラム例です。`../k21_2026_lecture2` で扱う Responses API の基本、会話履歴、instructions、推論設定の続きとして、Function Calling から Agents SDK へ段階的に進みます。
 
-中心テーマは、学習サイトのアクセスログ、20名分の演習アンケート、ワークショップ改善計画です。前半では Responses API の Function Calling で「モデルが関数呼び出しを要求し、ホスト側が実行結果を返す」流れを確認し、その後に同じ考え方を Agents SDK の `tool()` へ移します。後半では、Hosted tools、Handoff、Guardrails、Tracing、MCP を使い、外部情報取得、表形式データ処理、ブラウザ操作、リモートツール連携まで扱います。
+中心テーマは、学習サイトのアクセスログ、20名分の演習アンケート、ワークショップ改善計画です。前半では Responses API の Function Calling で「モデルが関数呼び出しを要求し、ホスト側が実行結果を返す」流れを確認し、その後に同じ考え方を Agents SDK の `tool()` へ移します。後半では、Hosted tools、Handoff、Guardrails、Tracing、MCP を使い、外部情報取得、表形式データ処理、ブラウザ操作、Excelブック更新、リモートツール連携まで扱います。
 
 ## 問題構成
 
@@ -23,12 +23,11 @@
 6. エージェントらしい制御に広げる
    - `example10.ts`: Handoff の有無を比較し、分析担当と改善計画担当に分けます。
    - `example11.ts`: Guardrails の有無を比較し、Input guardrail と Output guardrail で入出力境界を作ります。
-   - `example12.ts`: Tracing の有無を比較し、ツール利用を含む改善フローを記録します。
-7. 外部ツール連携と総合演習に進む
-   - `example13.ts`: Excel MCP Server でアンケート分析結果を反映したExcelファイルを作成します。
+   - `example12.ts`: Tracing の有無を比較し、CSV読み取りと集計ツールを含む改善フローを記録します。
+7. 外部ツール連携と実務寄りの操作に進む
+   - `example13.ts`: Excel MCP Server と hosted code interpreter で、既存Excelシートのアンケート回答から分析シートを作成します。
    - `example14.ts`: Playwright MCP Server でブラウザを操作し、飲食店の予約画面を表示します。
    - `example15.ts`: Streamable HTTP MCP Server でリモートのドメイン確認ツールを使います。
-   - `example16.ts`: 検索、集計ツール、Guardrails、Structured output、Tracing を組み合わせます。
 
 ## プログラム例
 
@@ -60,32 +59,29 @@
   - 概要: Structured output なし/ありで、ホスト側で集計した `survey.csv` の分析結果の扱いを比較する例です。
   - 学習のねらい: 自然文回答では後続処理のためにパースが必要ですが、Structured output なら指定したスキーマに沿った提案を型付きオブジェクトとして受け取り、コード側の集計値と結合できることを確認します。
 - `example10.ts`
-  - 概要: Handoff なし/ありで、アンケート分析担当と改善計画担当の専門エージェント分割を比較する例です。
-  - 学習のねらい: 1つのエージェントでは役割切り替えを観察しにくい一方、Handoff なら分析担当と計画担当への委譲をログで確認できることを学びます。
+  - 概要: Handoff なし/ありで、アンケート分析担当、改善計画担当、振り分け担当のエージェント分割を比較する例です。
+  - 学習のねらい: 1つのエージェントでは役割切り替えを観察しにくい一方、Handoff なら担当エージェントへの委譲をログで確認できることを学びます。
 - `example11.ts`
   - 概要: Guardrails なし/ありで、安全な学習支援、危険な入力、危険な出力の3ケースを比較する例です。
   - 学習のねらい: Guardrails なしでは危険な入出力の確認を目視に頼る必要がありますが、Guardrails ありならプログラムで停止できることを確認します。
 - `example12.ts`
-  - 概要: Tracing なし/ありで、`compute_average` ツールを使う改善フローの記録有無を比較する例です。
-  - 学習のねらい: Tracing なしでは実行後の追跡が難しい一方、Tracing ありならTrace名とツール呼び出しをデバッグや振り返りに使えることを確認します。
+  - 概要: Tracing なし/ありで、`read_survey_csv` と `calculate_survey_stats` を使う改善フローの記録有無を比較する例です。
+  - 学習のねらい: Tracing なしでは実行後の追跡が難しい一方、Tracing ありならCSV読み取り、集計、最終回答までのツール呼び出しをデバッグや振り返りに使えることを確認します。
 - `example13.ts`
-  - 概要: Excel MCP Server を使い、`survey.csv` の列を絞り、フォロー優先度の列を追加したExcelファイルを作成する例です。
-  - 学習のねらい: MCP なしでは文章での集計に留まりますが、MCP ありなら必要な列だけに整理し、解析結果を列として追加したExcelファイルを作れることを確認します。
+  - 概要: Excel MCP Server で既存Excelブックを読み書きし、hosted code interpreter でアンケート集計と分類を実行して分析シートを作成する例です。
+  - 学習のねらい: 実務のExcelブック更新では、元データの読み書きはMCP、再現性が必要な集計はcode interpreterに分けると、LLMの暗算や単純転記に頼らず成果物を更新できることを確認します。
 - `example14.ts`
   - 概要: Playwright MCP Server を使い、ホットペッパーで新宿駅周辺の予算5000円の焼肉屋を翌日19時から4名で予約できるお店として探し、予約画面をブラウザで表示する例です。
   - 学習のねらい: MCP なしでは飲食店検索サイトの画面操作や予約可能条件の確認を推測に頼る必要がありますが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、予約画面の表示まで試せることを学びます。
 - `example15.ts`
   - 概要: Streamable HTTP MCP Server の例として、Find a Domain MCP Server でAIエージェント関連サービス向けの `.com` ドメイン候補を確認します。
   - 学習のねらい: MCP はローカルプロセスだけでなくリモートHTTPサーバーにも接続でき、モデル単体では確認できない外部サービスの結果を回答に組み込めることを確認します。
-- `example16.ts`
-  - 概要: Hosted web search、アクセスログ集計、アンケート集計、input guardrail、structured output、tracing を組み合わせ、改善レポートを構造化して返す総合例です。
-  - 学習のねらい: このディレクトリで扱う主要概念を統合し、公式情報の根拠URLも含む実務に近い改善ワークフローとして構成する方法を学びます。
 
 ## 補足
 
 - `example06.ts` は Tavily API キーが必要です。
 - `survey.csv` は20名分の演習アンケートデータです。
-- `survey-template.xlsx` は `example13.ts` がコピー元として使う空のExcelテンプレートです。
-- `example13.ts` は `survey.csv` と `survey-template.xlsx` をもとに、新しい `survey-analysis-*.xlsx` を作成します。
+- `survey-template.xlsx` は `example13.ts` がコピー元として使うExcelテンプレートです。`SurveyResponses` シートに元データが入っており、`SurveyAnalysis` シートが更新対象です。
+- `example13.ts` は `survey-template.xlsx` をコピーし、新しい `survey-analysis-*.xlsx` を作成します。
 - `example14.ts` は事前に `npx --yes playwright install chromium` を実行しておく必要があります。
 - `example15.ts` は外部の Find a Domain MCP Server に接続します。

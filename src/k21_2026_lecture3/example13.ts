@@ -1,5 +1,5 @@
 /**
- * Excel MCP Serverを使い、既存シートのアンケート回答から集計表を作成する例。
+ * Excel MCP Serverとhosted code interpreterで、既存シートのアンケート回答から集計表を作成する例。
  */
 
 import { copyFile } from 'node:fs/promises';
