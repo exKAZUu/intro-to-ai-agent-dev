@@ -21,18 +21,10 @@ const planningAgent = new Agent({
 const analysisAgent = new Agent({
   name: 'Survey analysis agent',
   handoffDescription: '演習アンケートの数値集計と難所抽出を担当します。',
-  instructions:
-    '満足度平均、難しかったトピック、要望を整理して Improvement planning agent に委譲してください。',
+  instructions: '満足度平均、難しかったトピック、要望を整理して Improvement planning agent に委譲してください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   handoffs: [planningAgent],
-});
-
-const agentWithoutHandoff = new Agent({
-  name: 'Single workshop improvement agent',
-  instructions: `満足度平均を含めて改善案を作成してください。${finalAnswerInstruction}`,
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
 
 const triageAgent = Agent.create({
@@ -41,6 +33,13 @@ const triageAgent = Agent.create({
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   handoffs: [analysisAgent, planningAgent],
+});
+
+const agentWithoutHandoff = new Agent({
+  name: 'Single workshop improvement agent',
+  instructions: `満足度平均を含めて改善案を作成してください。${finalAnswerInstruction}`,
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
 
 const surveyRows = await readSurveyRows();
