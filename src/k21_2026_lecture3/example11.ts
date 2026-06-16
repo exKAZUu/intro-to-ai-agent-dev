@@ -82,14 +82,14 @@ for (const request of requests) {
   const resultWithGuardrails = await runWithGuardrails(request.text);
   console.log(`\n=== ${request.label} ===\n`);
   console.log(`入力: ${request.text}`);
-  console.log(`なし: ${summarizeResult(resultWithoutGuardrails.finalOutput)}`);
+  console.log(`なし: ${outputToText(resultWithoutGuardrails.finalOutput)}`);
   console.log(`あり: ${resultWithGuardrails}`);
 }
 
 async function runWithGuardrails(request: string) {
   try {
     const response = await run(agentWithGuardrails, request);
-    return summarizeResult(response.finalOutput);
+    return outputToText(response.finalOutput);
   } catch (error) {
     if (error instanceof InputGuardrailTripwireTriggered) {
       return `Input guardrailで停止 (${error.result.output.outputInfo})`;
@@ -101,10 +101,6 @@ async function runWithGuardrails(request: string) {
   }
 }
 
-function summarizeResult(finalOutput: unknown) {
-  const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-  if (text.includes('必ず就職')) {
-    return '禁止表現を含む応答';
-  }
-  return '応答';
+function outputToText(finalOutput: unknown) {
+  return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
 }

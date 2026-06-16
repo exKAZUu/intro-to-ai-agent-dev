@@ -92,7 +92,6 @@ for (let turn = 0; turn < 4; turn++) {
 }
 
 displayResult(finalOutput);
-displayComparison();
 
 function displayFunctionCalls(items: OpenAI.Responses.ResponseOutputItem[]) {
   const calls = items.flatMap((item) => (item.type === 'function_call' ? [{ name: item.name, arguments: item.arguments }] : []));
@@ -131,10 +130,4 @@ function computeAccessLogSummary(args: ReturnType<typeof parseAccessLogArguments
 function displayResult(output: string) {
   console.log('\n=== 利用ログ集計 ===\n');
   console.log(output || '回答を生成できませんでした。');
-}
-
-function displayComparison() {
-  console.log('\n=== Function Calling/Agents SDK tool() の接続 ===\n');
-  console.log('Responses API: function_call itemを受け取り、ホスト側で実行結果をfunction_call_outputとして戻します。');
-  console.log('Agents SDK: 同じ関数実行の往復をtool()とrun()が扱いやすい形にまとめます。');
 }

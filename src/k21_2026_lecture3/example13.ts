@@ -41,7 +41,7 @@ ${JSON.stringify(analysis.outputRows)}
     { maxTurns: 10 }
   );
   displayResult(response.finalOutput);
-  displayComparison(workbookPath, analysis);
+  displayWorkbookOutput(workbookPath, analysis);
 } finally {
   await mcpServer.close();
 }
@@ -51,14 +51,11 @@ function displayResult(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function displayComparison(workbookPath: string, analysis: SurveyAnalysis) {
-  console.log('\n=== MCPなし/ありの比較 ===\n');
-  console.log(
-    `なし: 解析結果は文章で説明できても、平均満足度 ${analysis.averageSatisfaction} や最頻出トピック ${analysis.topTopics.join(
-      ' / '
-    )} を反映したExcelファイルは作れません。`
-  );
-  console.log(`あり: Excel MCP Server のツールで、解析結果を反映した workbook を作成しました: ${workbookPath}`);
+function displayWorkbookOutput(workbookPath: string, analysis: SurveyAnalysis) {
+  console.log('\n=== 作成したExcelファイル ===\n');
+  console.log(`path=${workbookPath}`);
+  console.log(`averageSatisfaction=${analysis.averageSatisfaction}`);
+  console.log(`topTopics=${analysis.topTopics.join(' / ')}`);
 }
 
 async function createSurveyWorkbook() {

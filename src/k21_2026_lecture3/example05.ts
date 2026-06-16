@@ -65,7 +65,6 @@ const request = `
 const response = await run(agent, request, { maxTurns: 5 });
 displayToolCalls(response.newItems);
 displayResult(response.finalOutput);
-displayComparison();
 
 function displayToolCalls(items: { toJSON(): unknown }[]) {
   console.log('\n=== ツール呼び出し ===\n');
@@ -75,14 +74,6 @@ function displayToolCalls(items: { toJSON(): unknown }[]) {
 function displayResult(finalOutput: unknown) {
   console.log('\n=== 利用ログ集計 ===\n');
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
-}
-
-function displayComparison() {
-  console.log('\n=== 汎用計算ツール/業務専用ツールの比較 ===\n');
-  console.log('汎用計算ツール: 式の作り方をLLMが毎回判断するため、必要な入力項目や単位の抜けを防ぎにくくなります。');
-  console.log(
-    '業務専用ツール: 総リクエスト数、2種類の週次アクセス数、各ページの対象週数、キャッシュヒット率を契約として受け取り、必要な集計をまとめて返せます。'
-  );
 }
 
 function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
