@@ -3,6 +3,7 @@
  */
 
 import OpenAI from 'openai';
+import type { ResponseInputItem } from 'openai/resources/responses/responses';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
@@ -65,13 +66,13 @@ for (let turn = 0; turn < 4; turn++) {
   });
 
   displayFunctionCalls(response.output);
+  const functionCalls = response.output.filter((item) => item.type === 'function_call');
   let madeFunctionCall = false;
-  for (const item of response.output) {
-    if (item.type !== 'function_call') {
-      continue;
-    }
+  if (functionCalls.length > 0) {
+    input.push(...(response.output as ResponseInputItem[]));
+  }
+  for (const item of functionCalls) {
     madeFunctionCall = true;
-    input.push(item);
 
     const args = parseAccessLogArguments(item.arguments);
     input.push({
