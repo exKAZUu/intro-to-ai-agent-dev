@@ -60,30 +60,14 @@ const agentWithoutTavily = new Agent({
 });
 
 const requestBase = `
-あなたはAIエージェント開発ワークショップの教材調査担当です。
-次の3項目について、公式参考URLを1件ずつ探してください。
+次の3項目について公式ドキュメントのURLを調べ、「項目名: URL」の3行で答えてください。
 - Agents SDK JavaScript/TypeScript の tools
 - Structured Outputs
 - Agents SDK JavaScript/TypeScript の guardrails
-出力は「項目名: URL」の3行だけにしてください。
 `.trim();
 
-const responseWithoutTavily = await run(
-  agentWithoutTavily,
-  `
-${requestBase}
-外部検索ツールは使えません。手元のモデル知識だけで回答してください。
-`.trim(),
-  { maxTurns: 5 }
-);
-const responseWithTavily = await run(
-  agent,
-  `
-${requestBase}
-必ず tavily_search を使ってURLを確認してください。
-`.trim(),
-  { maxTurns: 8 }
-);
+const responseWithoutTavily = await run(agentWithoutTavily, requestBase, { maxTurns: 5 });
+const responseWithTavily = await run(agent, requestBase, { maxTurns: 8 });
 displayResults(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput);
 displayToolCalls(responseWithTavily.newItems);
 

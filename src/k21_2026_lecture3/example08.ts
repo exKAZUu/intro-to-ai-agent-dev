@@ -21,35 +21,21 @@ const agentWithCodeInterpreter = new Agent({
 });
 
 const csv = await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
-const promptWithoutCodeInterpreter = buildPrompt(csv, {
-  instruction: 'ツールは使えません。CSVを自然文として読んで分析してください。',
-});
-const promptWithCodeInterpreter = buildPrompt(csv, {
-  instruction: '必ず code_interpreter を使ってCSVを集計してから分析してください。',
-});
+const prompt = `
+次のCSVを集計してください。
+全体、参加形態別、最多の hardest_topic を3行で答えてください。
+全体と参加形態別には、回答者数、平均満足度、ハンズオン完了率を含めてください。
 
-const responseWithoutCodeInterpreter = await run(agentWithoutCodeInterpreter, promptWithoutCodeInterpreter, { maxTurns: 3 });
-const responseWithCodeInterpreter = await run(agentWithCodeInterpreter, promptWithCodeInterpreter, { maxTurns: 6 });
+${csv}
+`.trim();
+
+const responseWithoutCodeInterpreter = await run(agentWithoutCodeInterpreter, prompt, { maxTurns: 3 });
+const responseWithCodeInterpreter = await run(agentWithCodeInterpreter, prompt, { maxTurns: 6 });
 
 displayComparison({
   withCodeInterpreter: responseWithCodeInterpreter.finalOutput,
   withoutCodeInterpreter: responseWithoutCodeInterpreter.finalOutput,
 });
-
-function buildPrompt(csvText: string, options: { instruction: string }) {
-  return `
-あなたはワークショップの改善担当です。
-${options.instruction}
-次の演習後アンケートを集計してください。
-出力は次の3行だけにしてください。説明、根拠、追加質問、次の作業提案は書かないでください。
-
-全体: 回答者数、平均満足度、ハンズオン完了率
-参加形態: 教室参加/オンライン参加/録画視聴それぞれの人数、平均満足度、ハンズオン完了率
-最難関: 最多の hardest_topic と件数
-
-${csvText}
-`.trim();
-}
 
 function displayComparison(results: { withCodeInterpreter: unknown; withoutCodeInterpreter: unknown }) {
   console.log('\n=== なし ===\n');

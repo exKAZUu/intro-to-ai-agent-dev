@@ -29,8 +29,7 @@ try {
   const response = await run(
     agent,
     `
-あなたは演習アンケートのExcel出力担当です。
-Excel MCP Serverのツールだけを使って、事前に作成済みの新しいExcelファイル ${workbookPath} を更新してください。
+事前に作成済みの新しいExcelファイル ${workbookPath} を更新してください。
 
 1. 既存の SurveyAnalysis シートの ${rangeOf(analysis.outputRows)} に、次の2次元配列をそのまま書き込む。
 ${JSON.stringify(analysis.outputRows)}

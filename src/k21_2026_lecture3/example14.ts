@@ -12,16 +12,16 @@ const mcpServer = new MCPServerStdio({
   fullCommand: 'npx --yes @playwright/mcp@latest',
 });
 await mcpServer.connect();
+
 const agent = new Agent({
   name: 'Browser Assistant',
-  instructions: 'あなたはブラウザ操作を行うアシスタントです。ユーザーの指示に従って、ウェブページを操作してください。',
   model: 'gpt-5.4-mini',
   mcpServers: [mcpServer],
 });
 try {
   await runAgent(
     agent,
-    'ホットペッパーで、新宿駅の周辺にある予算5000円の焼肉屋を明日19時から4名で予約できるお店を探して、予約画面を表示して。最後に選んだ店舗名を「店舗名: ...」の形式で書いてください。'
+    'ホットペッパーで、新宿駅周辺の予算5000円の焼肉屋を、明日19時から4名で予約できる条件で探し、予約画面を表示してください。最後に「店舗名: ...」と書いてください。'
   );
 } finally {
   await mcpServer.close();

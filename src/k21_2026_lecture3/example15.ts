@@ -17,17 +17,6 @@ await mcpServer.connect();
 try {
   const agent = new Agent({
     name: 'AI agent domain planner',
-    instructions: `
-あなたはAIエージェント関連サービスの公開準備担当です。
-Find a Domain MCP Serverのツールを使って、AIエージェント関連サービスの名前として良いドメイン候補を探してください。
-空き状況だけを優先せず、ブランド名として自然な英語、短さ、覚えやすさを重視してください。
-確認するTLDは .com だけにしてください。
-良い名前を考える、空き状況を確認する、取得済みなら別の候補を考えて再確認する、という流れを繰り返してください。
-同じ候補を繰り返し確認しないでください。
-最終回答では、ツール結果の status が available の候補だけから良いと思うものを3つ選び、候補ごとの確認結果と理由を短く日本語でまとめてください。
-taken や error の候補は最終候補に含めないでください。
-追加質問や次の作業提案は書かないでください。
-`.trim(),
     model: 'gpt-5.4-nano',
     modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
     mcpServers: [mcpServer],
@@ -35,14 +24,13 @@ taken や error の候補は最終候補に含めないでください。
 
   const response = await run(
     agent,
-`
-AIエージェント関連サービス向けに、短く覚えやすく、サービス内容が伝わりやすいドメイン候補を探してください。
-不自然な造語や長すぎる名前は避けてください。
-候補は .com だけを確認してください。
-良い名前を確認し、取得済みなら少し方向を変えた良い名前を再度確認してください。
-最終的に取得可能な候補を3つ出してください。
+    `
+AIエージェント関連サービス向けの .com ドメイン候補を探してください。
+短く覚えやすい自然な英語名を重視し、取得済みなら別候補を確認してください。
+taken や error だった候補も含め、確認済みの候補名は再確認しないでください。
+最終回答では status が available の候補だけを3つ選び、理由を短くまとめてください。
 `.trim(),
-    { maxTurns: 16, stream: true }
+    { maxTurns: 32, stream: true }
   );
   await displayProgress(response);
   displayResult(response.finalOutput);

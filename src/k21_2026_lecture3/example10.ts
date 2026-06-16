@@ -18,11 +18,13 @@ const computeAverage = tool({
   },
 });
 
+const finalAnswerInstruction =
+  '最終回答は「平均満足度<数値> 改善案: ...」の1行。改善案は35字以内で、90分内に実行できる具体策を1つだけ書いてください。人数、略語、追加質問は書かないでください。';
+
 const planningAgent = new Agent({
   name: 'Improvement planning agent',
   handoffDescription: 'アンケート結果と学習サイト利用ログをもとに、改善案を作成します。',
-  instructions:
-    'ワークショップの改善案を、90分ワークショップの中で実行できる具体策として1つだけ返してください。出力は必ず「平均満足度<数値> 改善案: ...」の形式で1行80字以内にしてください。改善案は35字以内で、「何を」「どうする」が分かる1つの行動にしてください。例: MCP接続手順を冒頭で確認する。人数は書かず、略語や「全員完了」のような省略表現で終えないでください。追加質問や次の作業提案は書かないでください。',
+  instructions: `改善案を作成してください。${finalAnswerInstruction}`,
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
 });
@@ -31,7 +33,7 @@ const analysisAgent = new Agent({
   name: 'Survey analysis agent',
   handoffDescription: '演習アンケートの数値集計と難所抽出を担当します。',
   instructions:
-    '満足度平均は compute_average を使って計算し、難しかったトピックと要望を整理してください。整理後は Improvement planning agent に委譲してください。',
+    '満足度平均、難しかったトピック、要望を整理して Improvement planning agent に委譲してください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAverage],
@@ -40,16 +42,7 @@ const analysisAgent = new Agent({
 
 const agentWithoutHandoff = new Agent({
   name: 'Single workshop improvement agent',
-  instructions: `
-アンケート集計と改善案作成を1人で行ってください。
-満足度平均は compute_average を使ってください。
-出力は必ず「平均満足度<数値> 改善案: ...」の形式で1行で書いてください。
-改善案は1つだけ、35字以内にしてください。
-改善案は「何を」「どうする」が分かる1つの行動にしてください。
-例: MCP接続手順を冒頭で確認する。
-人数は書かず、略語や「全員完了」のような省略表現で終えないでください。
-追加質問や次の作業提案は書かないでください。
-`.trim(),
+  instructions: `満足度平均を含めて改善案を作成してください。${finalAnswerInstruction}`,
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   tools: [computeAverage],
@@ -57,16 +50,7 @@ const agentWithoutHandoff = new Agent({
 
 const triageAgent = Agent.create({
   name: 'Workshop improvement triage',
-  instructions: `
-ユーザの依頼を読み、アンケート集計が必要なら Survey analysis agent に、改善案の作成が必要なら Improvement planning agent に委譲してください。
-依頼に両方が含まれる場合は、必要な専門エージェントに順に委譲してから最終回答してください。
-最終回答は必ず「平均満足度<数値> 改善案: ...」の形式で1行で書いてください。
-改善案は1つだけ、35字以内にしてください。
-改善案は「何を」「どうする」が分かる1つの行動にしてください。
-例: MCP接続手順を冒頭で確認する。
-人数は書かず、略語や「全員完了」のような省略表現で終えないでください。
-追加質問や次の作業提案は書かないでください。
-`.trim(),
+  instructions: `アンケート集計は Survey analysis agent、改善案作成は Improvement planning agent に委譲してください。${finalAnswerInstruction}`,
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
   handoffs: [analysisAgent, planningAgent],
@@ -74,10 +58,7 @@ const triageAgent = Agent.create({
 
 const surveyRows = await readSurveyRows();
 const request = `
-次のAIエージェント開発ワークショップ結果を専門エージェントへ委譲して分析し、90分内で実行できる改善案で締めてください。
-満足度平均は compute_average を使ってください。追加質問や次の作業提案は書かないでください。
-最終出力は必ず「平均満足度<数値> 改善案: ...」の形式で1行80字以内にしてください。
-改善案は35字以内で、何を改善するかと何をするかが分かる1つの行動にしてください。人数と略語は書かないでください。
+次のワークショップ結果を分析し、改善案を出してください。
 
 演習アンケートは20件です。
 満足度は ${surveyRows.map((row) => row.satisfaction).join(', ')} でした。
@@ -115,7 +96,11 @@ function extractHandoffs(items: { toJSON(): unknown }[]) {
   });
 }
 
-function displayComparison(results: { handoffs: { from?: string; to?: string }[]; withHandoff: unknown; withoutHandoff: unknown }) {
+function displayComparison(results: {
+  handoffs: { from?: string; to?: string }[];
+  withHandoff: unknown;
+  withoutHandoff: unknown;
+}) {
   console.log('\n=== なし ===\n');
   console.log(`handoff: 0回`);
   displayFinalOutput(results.withoutHandoff);

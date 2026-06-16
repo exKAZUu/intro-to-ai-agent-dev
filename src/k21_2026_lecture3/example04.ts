@@ -32,12 +32,10 @@ const agent = new Agent({
 });
 
 const request = `
-ある学習サイトでは、対象期間の総リクエスト数が 987,654,321 件でした。
-通常演習ページは1週間あたり 1,234,567 件アクセスされ、対象期間は37週間です。
-補講演習ページは1週間あたり 891,011 件アクセスされ、対象期間は19週間です。
-通常演習ページと補講演習ページを合わせた演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
-必ず calc ツールを使い、演習ページは 1234567 * 37 + 891011 * 19、その他は 987654321 - 演習ページ で計算してください。
-最終行に「演習ページ=..., その他=...」と書いてください。
+対象期間の総リクエスト数は 987,654,321 件です。
+通常演習ページは 1,234,567 件/週で37週間、補講演習ページは 891,011 件/週で19週間です。
+演習ページの合計アクセス数と、それ以外のリクエスト数を計算してください。
+最後に「演習ページ=..., その他=...」と書いてください。
 `.trim();
 
 const response = await run(agent, request, { maxTurns: 5 });
@@ -57,7 +55,10 @@ function displayResult(finalOutput: unknown) {
 function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
   const calls = new Map<string, { arguments?: string; output?: string }>();
   for (const item of items) {
-    const itemJson = item.toJSON() as { rawItem?: { callId?: string; name?: string; arguments?: string }; output?: string };
+    const itemJson = item.toJSON() as {
+      rawItem?: { callId?: string; name?: string; arguments?: string };
+      output?: string;
+    };
     const callId = itemJson.rawItem?.callId;
     if (!callId || itemJson.rawItem?.name !== toolName) {
       continue;

@@ -20,34 +20,18 @@ const agentWithoutHostedSearch = new Agent({
 });
 
 const requestBase = `
-あなたはAIエージェント開発ワークショップの教材調査担当です。
-次の3項目について、公式参考URLを1件ずつ探してください。
+次の3項目について公式ドキュメントのURLを調べ、「項目名: URL」の3行で答えてください。
 - Agents SDK JavaScript/TypeScript の tools
 - Structured Outputs
 - Agents SDK JavaScript/TypeScript の guardrails
-出力は「項目名: URL」の3行だけにしてください。
 `.trim();
 
-const responseWithoutHostedSearch = await run(
-  agentWithoutHostedSearch,
-  `
-${requestBase}
-外部検索ツールは使えません。手元のモデル知識だけで回答してください。
-`.trim(),
-  {
-    maxTurns: 5,
-  }
-);
-const responseWithHostedSearch = await run(
-  agent,
-  `
-${requestBase}
-必ず web_search を使ってURLを確認してください。
-`.trim(),
-  {
-    maxTurns: 5,
-  }
-);
+const responseWithoutHostedSearch = await run(agentWithoutHostedSearch, requestBase, {
+  maxTurns: 5,
+});
+const responseWithHostedSearch = await run(agent, requestBase, {
+  maxTurns: 5,
+});
 displayResults(responseWithoutHostedSearch.finalOutput, responseWithHostedSearch.finalOutput);
 displayHostedSearchCalls(responseWithHostedSearch.newItems);
 

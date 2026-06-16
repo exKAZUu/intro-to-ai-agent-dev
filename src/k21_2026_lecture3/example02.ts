@@ -19,7 +19,7 @@ const tools: OpenAI.Responses.ResponseCreateParams['tools'] = [
       properties: {
         expression: {
           type: 'string',
-          description: '例: 1234567 * 37 + 891011 * 19',
+          description: '例: 1200 * 8 + 3400',
         },
       },
       required: ['expression'],
@@ -31,21 +31,12 @@ const tools: OpenAI.Responses.ResponseCreateParams['tools'] = [
 
 const input: OpenAI.Responses.ResponseCreateParams['input'] = [
   {
-    role: 'developer',
-    content: `
-あなたは学習サイトのアクセスログ集計担当です。
-数値計算は必ず calc 関数を使ってください。
-演習ページは 1234567 * 37 + 891011 * 19、その他は 987654321 - 演習ページ で計算してください。
-最終行に「演習ページ=..., その他=...」と書いてください。
-`.trim(),
-  },
-  {
     role: 'user',
     content: `
 対象期間の総リクエスト数は 987,654,321 件です。
-通常演習ページは1週間あたり 1,234,567 件アクセスされ、対象期間は37週間です。
-補講演習ページは1週間あたり 891,011 件アクセスされ、対象期間は19週間です。
-通常演習ページと補講演習ページを合わせた演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+通常演習ページは 1,234,567 件/週で37週間、補講演習ページは 891,011 件/週で19週間です。
+演習ページの合計アクセス数と、それ以外のリクエスト数を求めてください。
+最後に「演習ページ=..., その他=...」と書いてください。
 `.trim(),
   },
 ];
@@ -61,7 +52,7 @@ for (let turn = 0; turn < 6; turn++) {
 
   displayFunctionCalls(response.output);
   const functionCalls = response.output.filter((item) => item.type === 'function_call');
-  let madeFunctionCall = false;
+  let madeFunctionCall = functionCalls.length > 0;
   if (functionCalls.length > 0) {
     input.push(...(response.output as ResponseInputItem[]));
   }
@@ -85,7 +76,9 @@ for (let turn = 0; turn < 6; turn++) {
 displayResult(finalOutput);
 
 function displayFunctionCalls(items: OpenAI.Responses.ResponseOutputItem[]) {
-  const calls = items.flatMap((item) => (item.type === 'function_call' ? [{ name: item.name, arguments: item.arguments }] : []));
+  const calls = items.flatMap((item) =>
+    item.type === 'function_call' ? [{ name: item.name, arguments: item.arguments }] : []
+  );
   if (calls.length > 0) {
     console.log('\n=== Function Calling ===\n');
     console.dir(calls, { depth: null });
@@ -93,10 +86,7 @@ function displayFunctionCalls(items: OpenAI.Responses.ResponseOutputItem[]) {
 }
 
 function parseCalcArguments(rawArguments: string): { expression: string } {
-  const parsed = JSON.parse(rawArguments) as { expression?: unknown };
-  if (typeof parsed.expression !== 'string') {
-    throw new Error('expressionが指定されていません。');
-  }
+  const parsed = JSON.parse(rawArguments) as { expression: string };
   return { expression: parsed.expression };
 }
 
