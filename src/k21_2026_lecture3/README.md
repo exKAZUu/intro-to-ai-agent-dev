@@ -75,7 +75,7 @@
   - 概要: Playwright MCP Server を使い、ホットペッパーで新宿駅周辺の予算5000円の焼肉屋を翌日19時から4名で予約できるお店として探し、予約画面をブラウザで表示する例です。
   - 学習のねらい: MCP なしでは飲食店検索サイトの画面操作や予約可能条件の確認を推測に頼る必要がありますが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、予約画面の表示まで試せることを学びます。
 - `example15.ts`
-  - 概要: Streamable HTTP MCP Server の例として、Find a Domain MCP Server でAIエージェント関連サービス向けの `.jp` ドメイン候補を確認します。
+  - 概要: Streamable HTTP MCP Server の例として、Find a Domain MCP Server でAIエージェント関連サービス向けの `.com` ドメイン候補を確認します。
   - 学習のねらい: MCP はローカルプロセスだけでなくリモートHTTPサーバーにも接続でき、モデル単体では確認できない外部サービスの結果を回答に組み込めることを確認します。
 - `example16.ts`
   - 概要: Hosted web search、アクセスログ集計、アンケート集計、input guardrail、structured output、tracing を組み合わせ、改善レポートを構造化して返す総合例です。
