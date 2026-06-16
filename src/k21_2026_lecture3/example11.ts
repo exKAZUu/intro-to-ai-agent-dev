@@ -1,5 +1,5 @@
 /**
- * Input guardrailとOutput guardrailを使い、学習支援エージェントの安全な境界を作る例。
+ * Guardrailsの有無を比較し、学習支援エージェントの入出力境界を作る例。
  */
 
 import {

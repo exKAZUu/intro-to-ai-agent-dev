@@ -1,5 +1,5 @@
 /**
- * Hosted web searchを使い、改善計画に必要なAgents SDK機能を外部情報に基づいて確認する例。
+ * Hosted web searchの有無を比較し、Agents SDK機能の公式URL確認に使う例。
  */
 
 import { Agent, run, webSearchTool } from '@openai/agents';

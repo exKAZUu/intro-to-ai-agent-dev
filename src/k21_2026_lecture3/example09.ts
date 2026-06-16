@@ -1,5 +1,5 @@
 /**
- * Structured outputと集計ツールを併用し、アンケート分析結果を正確なオブジェクトとして受け取る例。
+ * Structured outputの有無を比較し、集計ツールの結果を型付きオブジェクトとして受け取る例。
  */
 
 import { readFile } from 'node:fs/promises';

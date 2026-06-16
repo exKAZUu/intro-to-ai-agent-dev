@@ -1,5 +1,5 @@
 /**
- * Streamable HTTP MCP Serverを使い、リモートMCPツールを扱う例。
+ * Find a DomainのStreamable HTTP MCP Serverを使い、ドメイン候補を確認する例。
  */
 
 import { Agent, MCPServerStreamableHttp, run } from '@openai/agents';

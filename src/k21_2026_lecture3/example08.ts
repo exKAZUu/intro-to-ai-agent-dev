@@ -1,5 +1,5 @@
 /**
- * Hosted code interpreterを使い、演習アンケートを自然文で分析する例。
+ * Hosted code interpreterの有無を比較し、演習アンケートを集計する例。
  */
 
 import { readFile } from 'node:fs/promises';

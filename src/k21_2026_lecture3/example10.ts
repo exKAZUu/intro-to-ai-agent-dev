@@ -1,5 +1,5 @@
 /**
- * Handoffを使い、アンケート分析と改善案作成を専門エージェントに分ける例。
+ * Handoffの有無を比較し、アンケート分析と改善案作成を専門エージェントに分ける例。
  */
 
 import { readFile } from 'node:fs/promises';

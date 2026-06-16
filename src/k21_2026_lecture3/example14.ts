@@ -1,5 +1,5 @@
 /**
- * Playwright MCP Serverを使い、ブラウザ操作を外部MCPツールとして扱う例。
+ * Playwright MCP Serverを使い、焼肉屋の予約候補をブラウザで確認する例。
  */
 
 import { Agent, MCPServerStdio, run } from '@openai/agents';

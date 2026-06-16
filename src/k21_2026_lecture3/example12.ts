@@ -1,5 +1,5 @@
 /**
- * Tracingを使い、ツール利用を含む改善フローを1つの処理として記録する例。
+ * Tracingの有無を比較し、ツール利用を含む改善フローを記録する例。
  */
 
 import { readFile } from 'node:fs/promises';

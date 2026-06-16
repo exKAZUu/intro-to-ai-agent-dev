@@ -1,5 +1,5 @@
 /**
- * Excel MCP Serverを使い、アンケート分析結果を反映したExcelファイルを作成する例。
+ * Excel MCP Serverを使い、SurveyAnalysisシートにフォロー優先度付きのアンケート分析表を作成する例。
  */
 
 import { copyFile, readFile } from 'node:fs/promises';
