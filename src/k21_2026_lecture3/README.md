@@ -26,7 +26,7 @@
    - `example12.ts`: Tracing の有無を比較し、ツール利用を含む改善フローを記録します。
 7. 外部ツール連携と総合演習に進む
    - `example13.ts`: Excel MCP Server でアンケート分析結果を反映したExcelファイルを作成します。
-   - `example14.ts`: Playwright MCP Server でブラウザを操作し、飲食店の予約候補を確認します。
+   - `example14.ts`: Playwright MCP Server でブラウザを操作し、飲食店の予約画面を表示します。
    - `example15.ts`: Streamable HTTP MCP Server でリモートのドメイン確認ツールを使います。
    - `example16.ts`: 検索、集計ツール、Guardrails、Structured output、Tracing を組み合わせます。
 
@@ -72,8 +72,8 @@
   - 概要: Excel MCP Server を使い、`survey.csv` の列を絞り、フォロー優先度の列を追加したExcelファイルを作成する例です。
   - 学習のねらい: MCP なしでは文章での集計に留まりますが、MCP ありなら必要な列だけに整理し、解析結果を列として追加したExcelファイルを作れることを確認します。
 - `example14.ts`
-  - 概要: Playwright MCP Server を使い、新宿駅周辺の焼肉屋で翌日19時から4名で予約できる候補をブラウザで確認する例です。
-  - 学習のねらい: MCP なしでは飲食店検索サイトの画面操作や予約可能条件の確認を推測に頼る必要がありますが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、予約候補や予約画面を確認できることを学びます。
+  - 概要: Playwright MCP Server を使い、新宿駅周辺の焼肉屋で翌日19時から4名で予約できるお店を探し、予約画面をブラウザで表示する例です。
+  - 学習のねらい: MCP なしでは飲食店検索サイトの画面操作や予約可能条件の確認を推測に頼る必要がありますが、Playwright MCP Server ありならブラウザ操作を外部ツールとして委譲し、予約画面の表示まで試せることを学びます。
 - `example15.ts`
   - 概要: Streamable HTTP MCP Server の例として、Find a Domain MCP Server でワークショップ改善ページ向けのドメイン候補を確認します。
   - 学習のねらい: MCP はローカルプロセスだけでなくリモートHTTPサーバーにも接続でき、モデル単体では確認できない外部サービスの結果を回答に組み込めることを確認します。
