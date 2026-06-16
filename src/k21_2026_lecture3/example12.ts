@@ -49,6 +49,7 @@ console.log('\n=== あり ===\n');
 console.log(`trace: ${traceName}`);
 displayFinalOutput(responseWithTrace?.finalOutput);
 console.log('確認: Traces画面でTrace名、エージェント名、compute_averageを確認できます。');
+console.log('Traces画面: https://platform.openai.com/traces');
 
 function displayFinalOutput(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
