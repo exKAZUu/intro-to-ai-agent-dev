@@ -81,6 +81,7 @@ for (const request of requests) {
   const resultWithoutGuardrails = await run(agentWithoutGuardrails, request.text);
   const resultWithGuardrails = await runWithGuardrails(request.text);
   console.log(`\n=== ${request.label} ===\n`);
+  console.log(`入力: ${request.text}`);
   console.log(`なし: ${summarizeResult(resultWithoutGuardrails.finalOutput)}`);
   console.log(`あり: ${resultWithGuardrails}`);
 }
