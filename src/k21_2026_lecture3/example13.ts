@@ -32,13 +32,10 @@ try {
 あなたは演習アンケートのExcel出力担当です。
 Excel MCP Serverのツールだけを使って、事前に作成済みの新しいExcelファイル ${workbookPath} を更新してください。
 
-1. 既存の Summary シートの ${rangeOf(analysis.summaryRows)} に、次の2次元配列をそのまま書き込む。
-${JSON.stringify(analysis.summaryRows)}
+1. 既存の SurveyAnalysis シートの ${rangeOf(analysis.outputRows)} に、次の2次元配列をそのまま書き込む。
+${JSON.stringify(analysis.outputRows)}
 
-2. 新しい SurveyAnalysis シートを作成し、${rangeOf(analysis.detailRows)} に、次の2次元配列をそのまま書き込む。
-${JSON.stringify(analysis.detailRows)}
-
-3. 最後に、作成したExcelファイルのパス、平均満足度、最頻出の難所、追加した列を短く報告してください。
+2. 最後に、作成したExcelファイルのパス、平均満足度、最頻出の難所、追加した列を短く報告してください。
 追加質問や次の作業提案は書かないでください。
 `.trim(),
     { maxTurns: 10 }
@@ -92,7 +89,7 @@ function analyzeSurvey(rows: SurveyRow[]): SurveyAnalysis {
   const topTopics = Object.entries(topicCounts)
     .filter(([, count]) => count === maxTopicCount)
     .map(([topic]) => topic);
-  const detailRows = [
+  const outputRows = [
     [
       'participant_id',
       'satisfaction',
@@ -107,17 +104,16 @@ function analyzeSurvey(rows: SurveyRow[]): SurveyAnalysis {
       row.request,
       needsFollowUp(row) ? '要フォロー' : '通常',
     ]),
+    ['', '', '', '', ''],
+    ['項目', '値', '', '', ''],
+    ['回答数', rows.length, '', '', ''],
+    ['平均満足度', averageSatisfaction, '', '', ''],
+    ['最頻出の難所', topTopics.join(' / '), '', '', ''],
+    ['', '', '', '', ''],
+    ['追加列', '意味', '', '', ''],
+    ['follow_up_priority', '低満足度またはハンズオン未完了の参加者を要フォローに分類', '', '', ''],
   ];
-  const summaryRows = [
-    ['項目', '値'],
-    ['回答数', rows.length],
-    ['平均満足度', averageSatisfaction],
-    ['最頻出の難所', topTopics.join(' / ')],
-    ['', ''],
-    ['追加列', '意味'],
-    ['follow_up_priority', '低満足度またはハンズオン未完了の参加者を要フォローに分類'],
-  ];
-  return { averageSatisfaction, detailRows, summaryRows, topTopics };
+  return { averageSatisfaction, outputRows, topTopics };
 }
 
 function countBy(values: string[]): Record<string, number> {
@@ -168,7 +164,6 @@ type SurveyRow = {
 
 type SurveyAnalysis = {
   averageSatisfaction: number;
-  detailRows: (number | string)[][];
-  summaryRows: (number | string)[][];
+  outputRows: (number | string)[][];
   topTopics: string[];
 };
