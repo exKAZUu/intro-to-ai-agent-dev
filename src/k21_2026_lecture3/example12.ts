@@ -8,28 +8,52 @@ import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const surveyRows = await readSurveyRows();
-
-const summarizeSurvey = tool({
-  name: 'summarize_survey',
-  description: '読み込み済みの演習アンケートから満足度平均、ハンズオン完了率、最多の難所を集計します。',
+const readSurveyCsv = tool({
+  name: 'read_survey_csv',
+  description: 'survey.csvの演習アンケート回答をCSVテキストとして読み取ります。',
   parameters: z.object({}).strict(),
   strict: true,
-  execute() {
-    return computeSurveySummary(surveyRows);
+  async execute() {
+    return await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
+  },
+});
+
+const calculateSurveyStats = tool({
+  name: 'calculate_survey_stats',
+  description: '演習アンケート回答から満足度平均、ハンズオン完了率、最多の難所を正確に集計します。',
+  parameters: z
+    .object({
+      rows: z
+        .array(
+          z
+            .object({
+              hands_on_completed: z.string(),
+              hardest_topic: z.string(),
+              satisfaction: z.number(),
+            })
+            .strict()
+        )
+        .min(1),
+    })
+    .strict(),
+  strict: true,
+  execute({ rows }) {
+    return computeSurveyStats(rows);
   },
 });
 
 const agent = new Agent({
   name: 'Trace workshop improvement analyst',
+  instructions:
+    'あなたは演習アンケートを分析するアシスタントです。CSVの内容を確認し、数値集計は利用可能な集計ツールで正確に処理してください。',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [summarizeSurvey],
+  tools: [readSurveyCsv, calculateSurveyStats],
 });
 
 const traceName = 'workshop_improvement_trace';
 const prompt = `
-読み込み済みの演習アンケートを集計し、改善コメントを1行で返してください。
+survey.csv の演習アンケートを分析し、改善コメントを1行で返してください。
 満足度平均、ハンズオン完了率、最多の難所を含めてください。
 `.trim();
 
@@ -54,44 +78,30 @@ console.log('Traces画面: https://platform.openai.com/traces');
 function displayToolCalls(items: { toJSON(): unknown }[]) {
   const calls = items.flatMap((item) => {
     const itemJson = item.toJSON() as { rawItem?: { name?: string; type?: string } };
-    return itemJson.rawItem?.type === 'function_call' && itemJson.rawItem.name === 'summarize_survey'
-      ? ['summarize_survey']
-      : [];
+    return itemJson.rawItem?.type === 'function_call' && itemJson.rawItem.name != null ? [itemJson.rawItem.name] : [];
   });
-  console.log(`tool: ${calls.length}回`);
+  console.log(`tool: ${calls.length === 0 ? 'なし' : calls.join(' -> ')}`);
 }
 
 function displayFinalOutput(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-async function readSurveyRows() {
-  const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');
-  return lines.map((line) => {
-    const columns = line.split(',');
-    const satisfaction = columns[3];
-    const hardestTopic = columns[4];
-    const handsOnCompleted = columns[5];
-    if (satisfaction == null || hardestTopic == null || handsOnCompleted == null) {
-      throw new Error(`survey.csv has an invalid row: ${line}`);
-    }
-    return {
-      handsOnCompleted: handsOnCompleted === '完了',
-      hardestTopic: String(hardestTopic),
-      satisfaction: Number(satisfaction),
-    };
-  });
-}
-
-function computeSurveySummary(rows: Awaited<ReturnType<typeof readSurveyRows>>) {
+function computeSurveyStats(rows: SurveyStatsRow[]) {
   const topicCounts = new Map<string, number>();
   for (const row of rows) {
-    topicCounts.set(row.hardestTopic, (topicCounts.get(row.hardestTopic) ?? 0) + 1);
+    topicCounts.set(row.hardest_topic, (topicCounts.get(row.hardest_topic) ?? 0) + 1);
   }
   const maxTopicCount = Math.max(...topicCounts.values());
   return {
     averageSatisfaction: rows.reduce((sum, row) => sum + row.satisfaction, 0) / rows.length,
-    handsOnCompletionRate: rows.filter((row) => row.handsOnCompleted).length / rows.length,
+    handsOnCompletionRate: rows.filter((row) => row.hands_on_completed === '完了').length / rows.length,
     topHardestTopics: [...topicCounts.entries()].filter(([, count]) => count === maxTopicCount).map(([topic]) => topic),
   };
 }
+
+type SurveyStatsRow = {
+  hands_on_completed: string;
+  hardest_topic: string;
+  satisfaction: number;
+};
