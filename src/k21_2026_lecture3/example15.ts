@@ -41,17 +41,20 @@ AIエージェント関連サービス向けに、短く覚えやすく、サー
 良い名前を確認し、取得済みなら少し方向を変えた良い名前を再度確認してください。
 最終的に取得可能な候補を3つ出してください。
 `.trim(),
-    { maxTurns: 16 }
+    { maxTurns: 16, stream: true }
   );
-  displayMcpItems(response.newItems);
+  await displayProgress(response);
   displayResult(response.finalOutput);
 } finally {
   await mcpServer.close();
 }
 
-function displayMcpItems(items: { toJSON(): unknown }[]) {
-  console.log('\n=== MCPツール呼び出し ===\n');
-  console.dir(extractMcpItems(items), { depth: null });
+async function displayProgress(events: AsyncIterable<{ type: string; name?: string; item?: { toJSON(): unknown } }>) {
+  console.log('\n=== ドメイン確認の途中経過 ===\n');
+  const domainsByCallId = new Map<string, string>();
+  for await (const event of events) {
+    displayProgressEvent(event, domainsByCallId);
+  }
 }
 
 function displayResult(finalOutput: unknown) {
@@ -59,35 +62,59 @@ function displayResult(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function extractMcpItems(items: { toJSON(): unknown }[]) {
-  const calls = new Map<string, { arguments?: string; name?: string; output?: string }>();
-  for (const item of items) {
-    const itemJson = item.toJSON() as {
-      rawItem?: {
-        callId?: string;
-        name?: string;
-        type?: string;
-        arguments?: string;
-      };
-      output?: string;
-    };
-    const callId = itemJson.rawItem?.callId;
-    if (!callId) {
-      continue;
-    }
-    const current = calls.get(callId) ?? {};
-    if (itemJson.rawItem?.type === 'function_call') {
-      calls.set(callId, {
-        ...current,
-        arguments: itemJson.rawItem.arguments,
-        name: itemJson.rawItem.name,
-      });
-    } else if (itemJson.rawItem?.type === 'function_call_result') {
-      calls.set(callId, {
-        ...current,
-        output: itemJson.output,
-      });
-    }
+function displayProgressEvent(
+  event: { type: string; name?: string; item?: { toJSON(): unknown } },
+  domainsByCallId: Map<string, string>
+) {
+  if (event.type !== 'run_item_stream_event' || !event.item) {
+    return;
   }
-  return [...calls.values()];
+  const itemJson = event.item.toJSON() as {
+    output?: string;
+    rawItem?: {
+      arguments?: string;
+      callId?: string;
+      name?: string;
+      output?: string | { text?: string; type?: string };
+      type?: string;
+    };
+  };
+  const callId = itemJson.rawItem?.callId;
+  if (!callId) {
+    return;
+  }
+  if (event.name === 'tool_called' && itemJson.rawItem?.type === 'function_call') {
+    const domain = extractDomain(itemJson.rawItem.arguments);
+    if (domain) {
+      domainsByCallId.set(callId, domain);
+      console.log(`確認中: ${domain}`);
+    }
+  } else if (event.name === 'tool_output' && itemJson.rawItem?.type === 'function_call_result') {
+    const status = extractStatus(itemJson.output ?? itemJson.rawItem.output);
+    const domain = domainsByCallId.get(callId) ?? callId;
+    console.log(`結果: ${domain} -> ${status ?? 'unknown'}`);
+  }
+}
+
+function extractDomain(argumentsJson: string | undefined) {
+  if (!argumentsJson) {
+    return undefined;
+  }
+  const parsed = JSON.parse(argumentsJson) as { name?: string; tld?: string };
+  if (!parsed.name || !parsed.tld) {
+    return undefined;
+  }
+  return `${parsed.name}.${parsed.tld}`;
+}
+
+function extractStatus(output: string | { text?: string; type?: string } | undefined) {
+  const text = typeof output === 'string' ? output : output?.text;
+  if (!text) {
+    return undefined;
+  }
+  const parsed = JSON.parse(text) as { status?: string; text?: string };
+  if (parsed.status) {
+    return parsed.status;
+  }
+  return parsed.text ? (JSON.parse(parsed.text) as { status?: string }).status : undefined;
 }
