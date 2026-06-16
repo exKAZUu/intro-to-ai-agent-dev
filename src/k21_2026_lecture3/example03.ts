@@ -13,21 +13,23 @@ const tools: OpenAI.Responses.ResponseCreateParams['tools'] = [
   {
     type: 'function',
     name: 'compute_access_log_summary',
-    description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
+    description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、各ページの対象週数、キャッシュヒット率から利用ログを集計します。',
     parameters: {
       type: 'object',
       properties: {
         totalRequests: { type: 'number', description: '対象期間の総リクエスト数' },
         weeklyRegularPracticePageRequests: { type: 'number', description: '通常演習ページの1週間あたりのリクエスト数' },
         weeklySupplementPracticePageRequests: { type: 'number', description: '補講演習ページの1週間あたりのリクエスト数' },
-        weeks: { type: 'number', description: '対象期間の週数' },
-        cacheHitRate: { type: 'number', description: 'キャッシュヒット率。72%なら0.72' },
+        regularPracticeWeeks: { type: 'number', description: '通常演習ページの対象週数' },
+        supplementPracticeWeeks: { type: 'number', description: '補講演習ページの対象週数' },
+        cacheHitRate: { type: 'number', description: 'キャッシュヒット率。68%なら0.68' },
       },
       required: [
         'totalRequests',
         'weeklyRegularPracticePageRequests',
         'weeklySupplementPracticePageRequests',
-        'weeks',
+        'regularPracticeWeeks',
+        'supplementPracticeWeeks',
         'cacheHitRate',
       ],
       additionalProperties: false,
@@ -42,15 +44,16 @@ const input: OpenAI.Responses.ResponseCreateParams['input'] = [
     content: `
 あなたは学習サイトのアクセスログ集計担当です。
 集計は必ず compute_access_log_summary 関数を使い、暗算で答えないでください。
-最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
+最終回答では、関数が返した通常演習ページアクセス数、補講演習ページアクセス数、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
 `.trim(),
   },
   {
     role: 'user',
     content: `
-対象期間の総リクエスト数は 8,987,654,321,234,567 件です。
-通常演習ページは1週間あたり 87,654,321,987 件、補講演習ページは1週間あたり 12,345,678,901 件アクセスされ、対象期間は89週間です。
-キャッシュヒット率は72%でした。
+対象期間の総リクエスト数は 987,654,321 件です。
+通常演習ページは1週間あたり 1,234,567 件アクセスされ、対象期間は37週間です。
+補講演習ページは1週間あたり 891,011 件アクセスされ、対象期間は19週間です。
+キャッシュヒット率は68%でした。
 この学習サイトの利用ログを集計してください。
 `.trim(),
   },
@@ -102,18 +105,22 @@ function displayFunctionCalls(items: OpenAI.Responses.ResponseOutputItem[]) {
 function parseAccessLogArguments(rawArguments: string) {
   return JSON.parse(rawArguments) as {
     cacheHitRate: number;
+    regularPracticeWeeks: number;
+    supplementPracticeWeeks: number;
     totalRequests: number;
     weeklyRegularPracticePageRequests: number;
     weeklySupplementPracticePageRequests: number;
-    weeks: number;
   };
 }
 
 function computeAccessLogSummary(args: ReturnType<typeof parseAccessLogArguments>) {
-  const practicePageRequests =
-    (args.weeklyRegularPracticePageRequests + args.weeklySupplementPracticePageRequests) * args.weeks;
+  const regularPracticePageRequests = args.weeklyRegularPracticePageRequests * args.regularPracticeWeeks;
+  const supplementPracticePageRequests = args.weeklySupplementPracticePageRequests * args.supplementPracticeWeeks;
+  const practicePageRequests = regularPracticePageRequests + supplementPracticePageRequests;
   const cacheHits = Math.round(args.totalRequests * args.cacheHitRate);
   return {
+    regularPracticePageRequests,
+    supplementPracticePageRequests,
     practicePageRequests,
     otherRequests: args.totalRequests - practicePageRequests,
     cacheHits,

@@ -2,12 +2,12 @@
 
 ワークショップのプログラム例です。現行版 `../k21_2026_lecture2` で扱う Responses API の基本、会話履歴、instructions、推論設定の続きとして、Function Calling から Agents SDK へ段階的に進みます。
 
-共通テーマは、学習サイトの大規模アクセスログ、20名分の演習アンケート、ワークショップ改善計画です。前半では Responses API の Function Calling で「モデルが関数呼び出しを要求し、ホスト側が実行結果を返す」流れを確認し、その後に同じ考え方を Agents SDK の `tool()` へ移します。
+共通テーマは、学習サイトのアクセスログ、20名分の演習アンケート、ワークショップ改善計画です。前半では Responses API の Function Calling で「モデルが関数呼び出しを要求し、ホスト側が実行結果を返す」流れを確認し、その後に同じ考え方を Agents SDK の `tool()` へ移します。
 
 ## 問題構成
 
 1. LLMだけでは苦手な処理を確認する
-   - `example01.ts`: 大きな数値集計をLLM単体で行い、期待値と目視比較します。
+   - `example01.ts`: 複数条件の数値集計をLLM単体で行い、期待値と目視比較します。
 2. Responses API の Function Calling を扱う
    - `example02.ts`: 汎用の四則演算関数 `calc` を Function Calling で呼び出します。
    - `example03.ts`: 業務専用関数 `compute_access_log_summary` を Function Calling で呼び出します。
@@ -31,8 +31,8 @@
 ## プログラム例
 
 - `example01.ts`
-  - 概要: LLMだけで学習サイトの大規模アクセスログを集計する例です。
-  - 学習のねらい: 大きな数値の集計では、LLMの回答が正しく見える場合でも、期待値と照合する仕組みが必要になることを確認します。
+  - 概要: LLMだけで学習サイトのアクセスログを集計する例です。
+  - 学習のねらい: 掛け算、足し算、差分が混ざる集計では、LLMの回答が正しく見える場合でも、期待値と照合する仕組みが必要になることを確認します。
 - `example02.ts`
   - 概要: Responses API の Function Calling で汎用の四則演算関数 `calc` を呼び出し、アクセスログ集計に使う例です。
   - 学習のねらい: モデルが `function_call` を出し、ホスト側が関数を実行し、`function_call_output` を返す基本ループを確認します。
