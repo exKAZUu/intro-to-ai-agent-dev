@@ -61,9 +61,11 @@ const agentWithoutTavily = new Agent({
 
 const requestBase = `
 あなたはAIエージェント開発ワークショップの教材調査担当です。
-tools、structured output、guardrails を、学習サイト利用ログ、参加者アンケート、改善計画のいずれかを扱う演習題材として整理してください。
-各題材について「教材で扱う理由」と「演習で作るもの」を1文ずつ書き、最後に公式参考URLだけを列挙して締めてください。
-Python SDKドキュメント、第三者記事、追加質問、次の作業提案は含めないでください。
+次の3項目について、公式参考URLを1件ずつ探してください。
+- Agents SDK JavaScript/TypeScript の tools
+- Structured Outputs
+- Agents SDK JavaScript/TypeScript の guardrails
+出力は「項目名: URL」の3行だけにしてください。
 `.trim();
 
 const responseWithoutTavily = await run(
@@ -78,9 +80,9 @@ const responseWithTavily = await run(
   agent,
   `
 ${requestBase}
-必ず tavily_search を使い、OpenAI公式ドキュメントまたはAgents SDK JavaScript/TypeScript公式ドキュメントだけを根拠にしてください。
+必ず tavily_search を使ってURLを確認してください。
 `.trim(),
-  { maxTurns: 5 }
+  { maxTurns: 8 }
 );
 displayResults(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput);
 displayToolCalls(responseWithTavily.newItems);
