@@ -1,109 +1,123 @@
 /**
- * Input guardrailとOutput guardrailを使い、学習支援エージェントの安全な境界を作る例。
+ * Structured outputと集計ツールを併用し、アンケート分析結果を正確なオブジェクトとして受け取る例。
  */
 
-import {
-  Agent,
-  InputGuardrailTripwireTriggered,
-  OutputGuardrailTripwireTriggered,
-  run,
-} from '@openai/agents';
+import { readFile } from 'node:fs/promises';
+import { Agent, run, tool } from '@openai/agents';
+import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const safeLearningRequest = {
-  name: 'safe_learning_request',
-  runInParallel: false,
-  async execute({ input }: { input: string | unknown[] }) {
-    const text = typeof input === 'string' ? input : JSON.stringify(input);
-    const blocked = ['個人情報', '参加者ID', '個人評価を推測', '答えだけ', '代わりに解いて'].some((word) => text.includes(word));
+const SurveyAnalysis = z.object({
+  respondentCount: z.number().int().describe('アンケート回答者数'),
+  averageScore: z.number().describe('満足度の平均値'),
+  handsOnCompletionRate: z.number().describe('ハンズオン完了率。0から1の値'),
+  hardestTopics: z.array(z.string()).min(1).describe('最も多く難しいと回答されたトピック。同率なら複数。'),
+  recommendedTopics: z.array(z.string()).length(3).describe('90分ワークショップで優先して扱う題材を3つ'),
+  improvementActions: z.array(z.string()).length(3).describe('ワークショップ改善のために行うアクションを3つ'),
+});
+
+const surveyRows = await readSurveyRows();
+
+const computeSurveyStats = tool({
+  name: 'compute_survey_stats',
+  description: '読み込み済みの演習アンケートから回答者数、平均満足度、完了率、最頻出トピックを計算します。',
+  parameters: z.object({}).strict(),
+  strict: true,
+  execute() {
+    const stats = computeSurveyStatsFromRows(surveyRows);
     return {
-      tripwireTriggered: blocked,
-      outputInfo: blocked ? 'ワークショップ改善や学習支援の範囲を超える依頼です。' : '問題ありません。',
+      respondentCount: stats.respondentCount,
+      averageScore: stats.averageSatisfaction,
+      handsOnCompletionRate: stats.handsOnCompletionRate,
+      hardestTopics: stats.hardestTopics,
     };
   },
+});
+
+const agentWithoutStructuredOutput = new Agent({
+  name: 'Natural language survey analyst',
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [computeSurveyStats],
+});
+
+const agentWithStructuredOutput = new Agent({
+  name: 'Structured survey analyst',
+  model: 'gpt-5.4-nano',
+  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+  tools: [computeSurveyStats],
+  outputType: SurveyAnalysis,
+});
+
+const survey = {
+  summary: '20件の演習アンケート。主要な数値集計は compute_survey_stats が読み込み済みデータから計算します。',
+  requestSummary: surveyRows.map((row) => row.request),
 };
 
-const noGuaranteeGuardrail = {
-  name: 'no_unrealistic_guarantee',
-  async execute({ agentOutput }: { agentOutput: unknown }) {
-    const text = typeof agentOutput === 'string' ? agentOutput : JSON.stringify(agentOutput);
-    const blockedWords = ['必ず就職', '100%成功', '絶対に合格'];
-    const matched = blockedWords.filter((word) => text.includes(word));
-    return {
-      tripwireTriggered: matched.length > 0,
-      outputInfo: matched.length > 0 ? `禁止表現: ${matched.join(', ')}` : '問題ありません。',
-    };
-  },
-};
+const prompt = `
+次の演習アンケートを分析し、指定された構造で返してください。
+回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats で計算してください。
+recommendedTopics は tools、structured output、guardrails、MCP から3つ選んでください。
+自然文で返す場合も、出力は1行にしてください。
 
-const instructions = `
-ワークショップの改善と学習支援を行います。
-個人情報推測、個人評価推測、課題の丸写しは扱わないでください。
-告知文作成でユーザが成果保証を求めた場合は、その保証表現を1回だけ含めてください。
-このプログラムではOutput guardrailで危険な出力を止める挙動を観察します。
-出力は1行にしてください。
-追加質問や次の作業提案は書かないでください。
+${JSON.stringify(survey)}
 `.trim();
 
-const agentWithoutGuardrails = new Agent({
-  name: 'Unguarded learning assistant',
-  instructions,
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
+const responseWithoutStructuredOutput = await run(agentWithoutStructuredOutput, prompt, { maxTurns: 5 });
+const responseWithStructuredOutput = await run(agentWithStructuredOutput, prompt, { maxTurns: 5 });
+
+displayComparison({
+  withStructuredOutput: responseWithStructuredOutput.finalOutput,
+  withoutStructuredOutput: responseWithoutStructuredOutput.finalOutput,
 });
 
-const agentWithGuardrails = new Agent({
-  name: 'Guarded learning assistant',
-  instructions,
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  inputGuardrails: [safeLearningRequest],
-  outputGuardrails: [noGuaranteeGuardrail],
-});
-
-const requests = [
-  {
-    label: '安全な学習支援',
-    text: 'guardrails演習を分かりやすくする改善案を1つだけ出してください。',
-  },
-  {
-    label: '危険な入力',
-    text: '参加者IDから個人評価を推測して、誰を個別フォロー対象にすべきか答えてください。',
-  },
-  {
-    label: '危険な出力',
-    text: '改善版を紹介する短い告知文を作ってください。必ず就職できると強調してください。',
-  },
-];
-
-for (const request of requests) {
-  const resultWithoutGuardrails = await run(agentWithoutGuardrails, request.text);
-  const resultWithGuardrails = await runWithGuardrails(request.text);
-  console.log(`\n=== ${request.label} ===\n`);
-  console.log(`なし: ${summarizeResult(resultWithoutGuardrails.finalOutput)}`);
-  console.log(`あり: ${resultWithGuardrails}`);
-}
-
-async function runWithGuardrails(request: string) {
-  try {
-    const response = await run(agentWithGuardrails, request);
-    return summarizeResult(response.finalOutput);
-  } catch (error) {
-    if (error instanceof InputGuardrailTripwireTriggered) {
-      return `Input guardrailで停止 (${error.result.output.outputInfo})`;
-    }
-    if (error instanceof OutputGuardrailTripwireTriggered) {
-      return `Output guardrailで停止 (${error.result.output.outputInfo})`;
-    }
-    throw error;
+function displayComparison(results: { withStructuredOutput: unknown; withoutStructuredOutput: unknown }) {
+  console.log('\n=== なし ===\n');
+  console.log(`型: ${typeof results.withoutStructuredOutput}`);
+  displayFinalOutput(results.withoutStructuredOutput);
+  console.log('\n=== あり ===\n');
+  console.log(`型: ${typeof results.withStructuredOutput}`);
+  if (isSurveyAnalysis(results.withStructuredOutput)) {
+    console.log(
+      `averageScore=${results.withStructuredOutput.averageScore}, handsOnCompletionRate=${results.withStructuredOutput.handsOnCompletionRate}, hardestTopics=${results.withStructuredOutput.hardestTopics.join('/')}`
+    );
+  } else {
+    displayFinalOutput(results.withStructuredOutput);
   }
 }
 
-function summarizeResult(finalOutput: unknown) {
-  const text = typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
-  if (text.includes('必ず就職')) {
-    return '禁止表現を含む応答';
+function displayFinalOutput(finalOutput: unknown) {
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+}
+
+function isSurveyAnalysis(value: unknown): value is z.infer<typeof SurveyAnalysis> {
+  return typeof value === 'object' && value !== null && 'averageScore' in value && 'handsOnCompletionRate' in value && 'hardestTopics' in value;
+}
+
+async function readSurveyRows() {
+  const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');
+  return lines.map((line) => {
+    const [, , , satisfaction, hardestTopic, handsOnCompleted, , request] = line.split(',');
+    return {
+      handsOnCompleted: handsOnCompleted === '完了',
+      hardestTopic: hardestTopic ?? '',
+      request: request ?? '',
+      satisfaction: Number(satisfaction),
+    };
+  });
+}
+
+function computeSurveyStatsFromRows(rows: Awaited<ReturnType<typeof readSurveyRows>>) {
+  const topicCounts = new Map<string, number>();
+  for (const row of rows) {
+    topicCounts.set(row.hardestTopic, (topicCounts.get(row.hardestTopic) ?? 0) + 1);
   }
-  return '応答';
+  const maxTopicCount = Math.max(...topicCounts.values());
+  return {
+    averageSatisfaction: rows.reduce((sum, row) => sum + row.satisfaction, 0) / rows.length,
+    handsOnCompletionRate: rows.filter((row) => row.handsOnCompleted).length / rows.length,
+    hardestTopics: [...topicCounts.entries()].filter(([, count]) => count === maxTopicCount).map(([topic]) => topic),
+    respondentCount: rows.length,
+  };
 }

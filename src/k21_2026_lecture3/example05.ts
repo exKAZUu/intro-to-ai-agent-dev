@@ -1,90 +1,88 @@
 /**
- * Hosted web searchを使い、改善計画に必要なAgents SDK機能を外部情報に基づいて確認する例。
+ * アクセスログ分析に特化したツールを渡し、業務単位の入力契約にする例。
  */
 
-import { Agent, run, webSearchTool } from '@openai/agents';
+import { Agent, run, tool } from '@openai/agents';
+import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
+const computeAccessLogSummary = tool({
+  name: 'compute_access_log_summary',
+  description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
+  parameters: z
+    .object({
+      totalRequests: z.number().int().describe('対象期間の総リクエスト数'),
+      weeklyRegularPracticePageRequests: z.number().int().describe('通常演習ページの1週間あたりのリクエスト数'),
+      weeklySupplementPracticePageRequests: z.number().int().describe('補講演習ページの1週間あたりのリクエスト数'),
+      weeks: z.number().int().positive().describe('対象期間の週数'),
+      cacheHitRate: z.number().min(0).max(1).describe('キャッシュヒット率。72%なら0.72'),
+    })
+    .strict(),
+  strict: true,
+  execute({ totalRequests, weeklyRegularPracticePageRequests, weeklySupplementPracticePageRequests, weeks, cacheHitRate }) {
+    const practicePageRequests = (weeklyRegularPracticePageRequests + weeklySupplementPracticePageRequests) * weeks;
+    const otherRequests = totalRequests - practicePageRequests;
+    const cacheHits = Math.round(totalRequests * cacheHitRate);
+    return {
+      practicePageRequests,
+      otherRequests,
+      cacheHits,
+      originRequests: totalRequests - cacheHits,
+    };
+  },
+});
+
 const agent = new Agent({
-  name: 'Workshop topic researcher with hosted search',
+  name: 'Structured log analyst',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [webSearchTool({ searchContextSize: 'low' })],
+  tools: [computeAccessLogSummary],
 });
 
-const agentWithoutHostedSearch = new Agent({
-  name: 'Workshop topic researcher without hosted search',
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-});
-
-const requestBase = `
-あなたはAIエージェント開発ワークショップの教材調査担当です。
-次の3項目について、公式参考URLを1件ずつ探してください。
-- Agents SDK JavaScript/TypeScript の tools
-- Structured Outputs
-- Agents SDK JavaScript/TypeScript の guardrails
-出力は「項目名: URL」の3行だけにしてください。
+const request = `
+対象期間の総リクエスト数は 8,987,654,321,234,567 件です。
+通常演習ページは1週間あたり 87,654,321,987 件、補講演習ページは1週間あたり 12,345,678,901 件アクセスされ、対象期間は89週間です。
+キャッシュヒット率は72%でした。
+この学習サイトの利用ログを集計してください。
+必ず compute_access_log_summary を使い、暗算で答えないでください。
+最終回答では、通常演習ページと補講演習ページを合わせた演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
 `.trim();
 
-const responseWithoutHostedSearch = await run(
-  agentWithoutHostedSearch,
-  `
-${requestBase}
-外部検索ツールは使えません。手元のモデル知識だけで回答してください。
-`.trim(),
-  {
-    maxTurns: 5,
-  }
-);
-const responseWithHostedSearch = await run(
-  agent,
-  `
-${requestBase}
-必ず web_search を使ってURLを確認してください。
-`.trim(),
-  {
-    maxTurns: 5,
-  }
-);
-displayResults(responseWithoutHostedSearch.finalOutput, responseWithHostedSearch.finalOutput);
-displayHostedSearchCalls(responseWithHostedSearch.newItems);
+const response = await run(agent, request, { maxTurns: 5 });
+displayToolCalls(response.newItems);
+displayResult(response.finalOutput);
+displayComparison();
 
-function displayResults(finalOutputWithoutHostedSearch: unknown, finalOutputWithHostedSearch: unknown) {
-  console.log('\n=== Hosted web searchなしの最終出力 ===\n');
-  console.log(outputToText(finalOutputWithoutHostedSearch));
-  console.log('\n=== Hosted web searchありの最終出力 ===\n');
-  console.log(outputToText(finalOutputWithHostedSearch));
+function displayToolCalls(items: { toJSON(): unknown }[]) {
+  console.log('\n=== ツール呼び出し ===\n');
+  console.dir(extractToolCalls(items, 'compute_access_log_summary'), { depth: null });
 }
 
-function displayHostedSearchCalls(items: { toJSON(): unknown }[]) {
-  console.log('\n=== Hosted web search呼び出し ===\n');
-  console.dir(extractHostedSearchCalls(items), { depth: null });
+function displayResult(finalOutput: unknown) {
+  console.log('\n=== 利用ログ集計 ===\n');
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function outputToText(finalOutput: unknown) {
-  return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
+function displayComparison() {
+  console.log('\n=== 汎用計算ツール/業務専用ツールの比較 ===\n');
+  console.log('汎用計算ツール: 式の作り方をLLMが毎回判断するため、必要な入力項目や単位の抜けを防ぎにくくなります。');
+  console.log('業務専用ツール: 総リクエスト数、2種類の週次アクセス数、週数、キャッシュヒット率を契約として受け取り、必要な集計をまとめて返せます。');
 }
 
-function extractHostedSearchCalls(items: { toJSON(): unknown }[]) {
-  return items.flatMap((item) => {
-    const itemJson = item.toJSON() as {
-      rawItem?: {
-        name?: string;
-        status?: string;
-        type?: string;
-        providerData?: { action?: unknown };
-      };
-    };
-    if (itemJson.rawItem?.type !== 'hosted_tool_call' || itemJson.rawItem.name !== 'web_search_call') {
-      return [];
+function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
+  const calls = new Map<string, { arguments?: string; output?: string }>();
+  for (const item of items) {
+    const itemJson = item.toJSON() as { rawItem?: { callId?: string; name?: string; arguments?: string }; output?: string };
+    const callId = itemJson.rawItem?.callId;
+    if (!callId || itemJson.rawItem?.name !== toolName) {
+      continue;
     }
-    return [
-      {
-        status: itemJson.rawItem.status,
-        action: itemJson.rawItem.providerData?.action,
-      },
-    ];
-  });
+    calls.set(callId, {
+      ...calls.get(callId),
+      ...(itemJson.rawItem.arguments ? { arguments: itemJson.rawItem.arguments } : {}),
+      ...(itemJson.output ? { output: itemJson.output } : {}),
+    });
+  }
+  return [...calls.values()];
 }

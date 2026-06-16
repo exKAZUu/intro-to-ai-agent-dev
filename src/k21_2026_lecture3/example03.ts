@@ -1,88 +1,132 @@
 /**
- * アクセスログ分析に特化したツールを渡し、業務単位の入力契約にする例。
+ * Responses APIのFunction Callingで業務専用関数を呼び出し、入力契約を明確にする例。
  */
 
-import { Agent, run, tool } from '@openai/agents';
-import { z } from 'zod';
+import OpenAI from 'openai';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const computeAccessLogSummary = tool({
-  name: 'compute_access_log_summary',
-  description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
-  parameters: z
-    .object({
-      totalRequests: z.number().int().describe('対象期間の総リクエスト数'),
-      weeklyRegularPracticePageRequests: z.number().int().describe('通常演習ページの1週間あたりのリクエスト数'),
-      weeklySupplementPracticePageRequests: z.number().int().describe('補講演習ページの1週間あたりのリクエスト数'),
-      weeks: z.number().int().positive().describe('対象期間の週数'),
-      cacheHitRate: z.number().min(0).max(1).describe('キャッシュヒット率。72%なら0.72'),
-    })
-    .strict(),
-  strict: true,
-  execute({ totalRequests, weeklyRegularPracticePageRequests, weeklySupplementPracticePageRequests, weeks, cacheHitRate }) {
-    const practicePageRequests = (weeklyRegularPracticePageRequests + weeklySupplementPracticePageRequests) * weeks;
-    const otherRequests = totalRequests - practicePageRequests;
-    const cacheHits = Math.round(totalRequests * cacheHitRate);
-    return {
-      practicePageRequests,
-      otherRequests,
-      cacheHits,
-      originRequests: totalRequests - cacheHits,
-    };
+const client = new OpenAI();
+
+const tools: OpenAI.Responses.ResponseCreateParams['tools'] = [
+  {
+    type: 'function',
+    name: 'compute_access_log_summary',
+    description: '学習サイトの総リクエスト数、通常演習ページと補講演習ページの週次アクセス数、週数、キャッシュヒット率から利用ログを集計します。',
+    parameters: {
+      type: 'object',
+      properties: {
+        totalRequests: { type: 'number', description: '対象期間の総リクエスト数' },
+        weeklyRegularPracticePageRequests: { type: 'number', description: '通常演習ページの1週間あたりのリクエスト数' },
+        weeklySupplementPracticePageRequests: { type: 'number', description: '補講演習ページの1週間あたりのリクエスト数' },
+        weeks: { type: 'number', description: '対象期間の週数' },
+        cacheHitRate: { type: 'number', description: 'キャッシュヒット率。72%なら0.72' },
+      },
+      required: [
+        'totalRequests',
+        'weeklyRegularPracticePageRequests',
+        'weeklySupplementPracticePageRequests',
+        'weeks',
+        'cacheHitRate',
+      ],
+      additionalProperties: false,
+    },
+    strict: true,
   },
-});
+];
 
-const agent = new Agent({
-  name: 'Structured log analyst',
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [computeAccessLogSummary],
-});
-
-const request = `
+const input: OpenAI.Responses.ResponseCreateParams['input'] = [
+  {
+    role: 'developer',
+    content: `
+あなたは学習サイトのアクセスログ集計担当です。
+集計は必ず compute_access_log_summary 関数を使い、暗算で答えないでください。
+最終回答では、演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
+`.trim(),
+  },
+  {
+    role: 'user',
+    content: `
 対象期間の総リクエスト数は 8,987,654,321,234,567 件です。
 通常演習ページは1週間あたり 87,654,321,987 件、補講演習ページは1週間あたり 12,345,678,901 件アクセスされ、対象期間は89週間です。
 キャッシュヒット率は72%でした。
 この学習サイトの利用ログを集計してください。
-必ず compute_access_log_summary を使い、暗算で答えないでください。
-最終回答では、通常演習ページと補講演習ページを合わせた演習ページアクセス数、その他リクエスト数、キャッシュヒット数、オリジン到達数をまとめてください。
-`.trim();
+`.trim(),
+  },
+];
 
-const response = await run(agent, request, { maxTurns: 5 });
-displayToolCalls(response.newItems);
-displayResult(response.finalOutput);
-displayComparison();
+let finalOutput = '';
+for (let turn = 0; turn < 4; turn++) {
+  const response = await client.responses.create({
+    model: 'gpt-5.4-nano',
+    reasoning: { effort: 'low', summary: 'auto' },
+    tools,
+    input,
+  });
 
-function displayToolCalls(items: { toJSON(): unknown }[]) {
-  console.log('\n=== ツール呼び出し ===\n');
-  console.dir(extractToolCalls(items, 'compute_access_log_summary'), { depth: null });
+  displayFunctionCalls(response.output);
+  let madeFunctionCall = false;
+  for (const item of response.output) {
+    if (item.type !== 'function_call') {
+      continue;
+    }
+    madeFunctionCall = true;
+    input.push(item);
+
+    const args = parseAccessLogArguments(item.arguments);
+    input.push({
+      type: 'function_call_output',
+      call_id: item.call_id,
+      output: JSON.stringify(computeAccessLogSummary(args)),
+    });
+  }
+
+  if (!madeFunctionCall) {
+    finalOutput = response.output_text;
+    break;
+  }
 }
 
-function displayResult(finalOutput: unknown) {
+displayResult(finalOutput);
+displayComparison();
+
+function displayFunctionCalls(items: OpenAI.Responses.ResponseOutputItem[]) {
+  const calls = items.flatMap((item) => (item.type === 'function_call' ? [{ name: item.name, arguments: item.arguments }] : []));
+  if (calls.length > 0) {
+    console.log('\n=== Function Calling ===\n');
+    console.dir(calls, { depth: null });
+  }
+}
+
+function parseAccessLogArguments(rawArguments: string) {
+  return JSON.parse(rawArguments) as {
+    cacheHitRate: number;
+    totalRequests: number;
+    weeklyRegularPracticePageRequests: number;
+    weeklySupplementPracticePageRequests: number;
+    weeks: number;
+  };
+}
+
+function computeAccessLogSummary(args: ReturnType<typeof parseAccessLogArguments>) {
+  const practicePageRequests =
+    (args.weeklyRegularPracticePageRequests + args.weeklySupplementPracticePageRequests) * args.weeks;
+  const cacheHits = Math.round(args.totalRequests * args.cacheHitRate);
+  return {
+    practicePageRequests,
+    otherRequests: args.totalRequests - practicePageRequests,
+    cacheHits,
+    originRequests: args.totalRequests - cacheHits,
+  };
+}
+
+function displayResult(output: string) {
   console.log('\n=== 利用ログ集計 ===\n');
-  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+  console.log(output || '回答を生成できませんでした。');
 }
 
 function displayComparison() {
-  console.log('\n=== 汎用計算ツール/業務専用ツールの比較 ===\n');
-  console.log('汎用計算ツール: 式の作り方をLLMが毎回判断するため、必要な入力項目や単位の抜けを防ぎにくくなります。');
-  console.log('業務専用ツール: 総リクエスト数、2種類の週次アクセス数、週数、キャッシュヒット率を契約として受け取り、必要な集計をまとめて返せます。');
-}
-
-function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
-  const calls = new Map<string, { arguments?: string; output?: string }>();
-  for (const item of items) {
-    const itemJson = item.toJSON() as { rawItem?: { callId?: string; name?: string; arguments?: string }; output?: string };
-    const callId = itemJson.rawItem?.callId;
-    if (!callId || itemJson.rawItem?.name !== toolName) {
-      continue;
-    }
-    calls.set(callId, {
-      ...calls.get(callId),
-      ...(itemJson.rawItem.arguments ? { arguments: itemJson.rawItem.arguments } : {}),
-      ...(itemJson.output ? { output: itemJson.output } : {}),
-    });
-  }
-  return [...calls.values()];
+  console.log('\n=== Function Calling/Agents SDK tool() の接続 ===\n');
+  console.log('Responses API: function_call itemを受け取り、ホスト側で実行結果をfunction_call_outputとして戻します。');
+  console.log('Agents SDK: 同じ関数実行の往復をtool()とrun()が扱いやすい形にまとめます。');
 }

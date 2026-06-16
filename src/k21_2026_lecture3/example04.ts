@@ -1,140 +1,71 @@
 /**
- * Tavily検索ツールを自作し、改善計画に必要なAgents SDK機能を外部情報に基づいて確認する例。
+ * 汎用計算ツールを渡し、アクセスログ集計の数値計算を安定させる例。
  */
 
 import { Agent, run, tool } from '@openai/agents';
-import { tavily } from '@tavily/core';
 import { z } from 'zod';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
-process.env.TAVILY_API_KEY ||= 'tvly-<ここにTavilyのAPIキーを貼り付けてください>';
 
-const officialDomains = ['developers.openai.com', 'platform.openai.com', 'openai.github.io'];
-const tvly = tavily();
-const tavilySearch = tool({
-  name: 'tavily_search',
-  description: 'OpenAI公式ドキュメントと公式Agents SDKドキュメントに限定して、最新のウェブ検索結果を取得します。',
-  parameters: z.object({ query: z.string().min(1) }).strict(),
+const calc = tool({
+  name: 'calc',
+  description: '四則演算だけで構成されたJavaScript式を計算します。',
+  parameters: z
+    .object({
+      expression: z.string().describe('例: (87654321987 + 12345678901) * 89'),
+    })
+    .strict(),
   strict: true,
-  async execute({ query }) {
-    const officialQuery = `${query} site:developers.openai.com OR site:platform.openai.com OR site:openai.github.io`;
-    const { results } = await tvly.search(officialQuery, { maxResults: 8, includeAnswer: false, includeImages: false });
-    const officialResults = results.filter((result) => isAllowedOfficialUrl(result.url));
-    return {
-      results: officialResults.map((result) => ({
-        title: result.title,
-        url: result.url,
-        content: result.content,
-      })),
-      note:
-        officialResults.length > 0
-          ? '公式ドメインの結果だけを返しました。'
-          : '公式ドメインの結果が見つかりませんでした。回答では情報不足として扱ってください。',
-    };
+  execute({ expression }) {
+    if (!/^[\d\s+\-*/().]+$/.test(expression)) {
+      throw new Error('四則演算以外の式は実行できません。');
+    }
+    return { result: Function(`"use strict"; return (${expression});`)() };
   },
 });
 
-function isAllowedOfficialUrl(url: string) {
-  try {
-    const parsedUrl = new URL(url);
-    if (!officialDomains.includes(parsedUrl.hostname)) {
-      return false;
-    }
-    return parsedUrl.hostname !== 'openai.github.io' || parsedUrl.pathname.includes('/openai-agents-js/');
-  } catch {
-    return false;
-  }
-}
-
 const agent = new Agent({
-  name: 'Workshop topic researcher with Tavily',
+  name: 'Calculator log analyst',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [tavilySearch],
+  tools: [calc],
 });
 
-const agentWithoutTavily = new Agent({
-  name: 'Workshop topic researcher without Tavily',
-  model: 'gpt-5.4-nano',
-  modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-});
-
-const requestBase = `
-あなたはAIエージェント開発ワークショップの教材調査担当です。
-次の3項目について、公式参考URLを1件ずつ探してください。
-- Agents SDK JavaScript/TypeScript の tools
-- Structured Outputs
-- Agents SDK JavaScript/TypeScript の guardrails
-出力は「項目名: URL」の3行だけにしてください。
+const request = `
+ある学習サイトでは、対象期間の総リクエスト数が 8,987,654,321,234,567 件でした。
+通常演習ページは1週間あたり 87,654,321,987 件、補講演習ページは1週間あたり 12,345,678,901 件アクセスされ、対象期間は89週間です。
+通常演習ページと補講演習ページを合わせた演習ページの合計アクセス数と、それ以外のリクエスト数を正確に計算してください。
+必ず calc ツールを使い、演習ページは (87654321987 + 12345678901) * 89、その他は 8987654321234567 - 演習ページ で計算してください。
+最終行に「演習ページ=..., その他=...」と書いてください。
 `.trim();
 
-const responseWithoutTavily = await run(
-  agentWithoutTavily,
-  `
-${requestBase}
-外部検索ツールは使えません。手元のモデル知識だけで回答してください。
-`.trim(),
-  { maxTurns: 5 }
-);
-const responseWithTavily = await run(
-  agent,
-  `
-${requestBase}
-必ず tavily_search を使ってURLを確認してください。
-`.trim(),
-  { maxTurns: 8 }
-);
-displayResults(responseWithoutTavily.finalOutput, responseWithTavily.finalOutput);
-displayToolCalls(responseWithTavily.newItems);
-
-function displayResults(finalOutputWithoutTavily: unknown, finalOutputWithTavily: unknown) {
-  console.log('\n=== Tavilyなしの最終出力 ===\n');
-  console.log(outputToText(finalOutputWithoutTavily));
-  console.log('\n=== Tavilyありの最終出力 ===\n');
-  console.log(outputToText(finalOutputWithTavily));
-}
+const response = await run(agent, request, { maxTurns: 5 });
+displayToolCalls(response.newItems);
+displayResult(response.finalOutput);
 
 function displayToolCalls(items: { toJSON(): unknown }[]) {
-  console.log('\n=== Tavily検索ツール呼び出し ===\n');
-  console.dir(extractTavilyToolCalls(items), { depth: null });
+  console.log('\n=== ツール呼び出し ===\n');
+  console.dir(extractToolCalls(items, 'calc'), { depth: null });
 }
 
-function outputToText(finalOutput: unknown) {
-  return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
+function displayResult(finalOutput: unknown) {
+  console.log('\n=== 回答 ===\n');
+  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
 }
 
-function extractTavilyToolCalls(items: { toJSON(): unknown }[]) {
-  const calls = new Map<string, { arguments?: string; urls: string[] }>();
+function extractToolCalls(items: { toJSON(): unknown }[], toolName: string) {
+  const calls = new Map<string, { arguments?: string; output?: string }>();
   for (const item of items) {
-    const itemJson = item.toJSON() as {
-      rawItem?: {
-        callId?: string;
-        name?: string;
-        arguments?: string;
-        output?: { text?: string };
-      };
-      output?: string;
-    };
+    const itemJson = item.toJSON() as { rawItem?: { callId?: string; name?: string; arguments?: string }; output?: string };
     const callId = itemJson.rawItem?.callId;
-    if (!callId || itemJson.rawItem?.name !== 'tavily_search') {
+    if (!callId || itemJson.rawItem?.name !== toolName) {
       continue;
     }
-    const current = calls.get(callId) ?? { urls: [] };
-    const output = itemJson.output ?? itemJson.rawItem.output?.text;
     calls.set(callId, {
-      ...current,
+      ...calls.get(callId),
       ...(itemJson.rawItem.arguments ? { arguments: itemJson.rawItem.arguments } : {}),
-      urls: output ? extractUrlsFromToolOutput(output) : current.urls,
+      ...(itemJson.output ? { output: itemJson.output } : {}),
     });
   }
   return [...calls.values()];
-}
-
-function extractUrlsFromToolOutput(output: string) {
-  try {
-    const parsed = JSON.parse(output) as { results?: { url?: unknown }[] };
-    return parsed.results?.flatMap((result) => (typeof result.url === 'string' ? [result.url] : [])) ?? [];
-  } catch {
-    return [];
-  }
 }

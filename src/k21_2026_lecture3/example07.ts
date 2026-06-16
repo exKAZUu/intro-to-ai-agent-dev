@@ -1,123 +1,90 @@
 /**
- * Structured outputと集計ツールを併用し、アンケート分析結果を正確なオブジェクトとして受け取る例。
+ * Hosted web searchを使い、改善計画に必要なAgents SDK機能を外部情報に基づいて確認する例。
  */
 
-import { readFile } from 'node:fs/promises';
-import { Agent, run, tool } from '@openai/agents';
-import { z } from 'zod';
+import { Agent, run, webSearchTool } from '@openai/agents';
 
 process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
 
-const SurveyAnalysis = z.object({
-  respondentCount: z.number().int().describe('アンケート回答者数'),
-  averageScore: z.number().describe('満足度の平均値'),
-  handsOnCompletionRate: z.number().describe('ハンズオン完了率。0から1の値'),
-  hardestTopics: z.array(z.string()).min(1).describe('最も多く難しいと回答されたトピック。同率なら複数。'),
-  recommendedTopics: z.array(z.string()).length(3).describe('90分ワークショップで優先して扱う題材を3つ'),
-  improvementActions: z.array(z.string()).length(3).describe('ワークショップ改善のために行うアクションを3つ'),
-});
-
-const surveyRows = await readSurveyRows();
-
-const computeSurveyStats = tool({
-  name: 'compute_survey_stats',
-  description: '読み込み済みの演習アンケートから回答者数、平均満足度、完了率、最頻出トピックを計算します。',
-  parameters: z.object({}).strict(),
-  strict: true,
-  execute() {
-    const stats = computeSurveyStatsFromRows(surveyRows);
-    return {
-      respondentCount: stats.respondentCount,
-      averageScore: stats.averageSatisfaction,
-      handsOnCompletionRate: stats.handsOnCompletionRate,
-      hardestTopics: stats.hardestTopics,
-    };
-  },
-});
-
-const agentWithoutStructuredOutput = new Agent({
-  name: 'Natural language survey analyst',
+const agent = new Agent({
+  name: 'Workshop topic researcher with hosted search',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [computeSurveyStats],
+  tools: [webSearchTool({ searchContextSize: 'low' })],
 });
 
-const agentWithStructuredOutput = new Agent({
-  name: 'Structured survey analyst',
+const agentWithoutHostedSearch = new Agent({
+  name: 'Workshop topic researcher without hosted search',
   model: 'gpt-5.4-nano',
   modelSettings: { reasoning: { effort: 'low', summary: 'auto' } },
-  tools: [computeSurveyStats],
-  outputType: SurveyAnalysis,
 });
 
-const survey = {
-  summary: '20件の演習アンケート。主要な数値集計は compute_survey_stats が読み込み済みデータから計算します。',
-  requestSummary: surveyRows.map((row) => row.request),
-};
-
-const prompt = `
-次の演習アンケートを分析し、指定された構造で返してください。
-回答者数、平均満足度、ハンズオン完了率、最頻出トピックは必ず compute_survey_stats で計算してください。
-recommendedTopics は tools、structured output、guardrails、MCP から3つ選んでください。
-自然文で返す場合も、出力は1行にしてください。
-
-${JSON.stringify(survey)}
+const requestBase = `
+あなたはAIエージェント開発ワークショップの教材調査担当です。
+次の3項目について、公式参考URLを1件ずつ探してください。
+- Agents SDK JavaScript/TypeScript の tools
+- Structured Outputs
+- Agents SDK JavaScript/TypeScript の guardrails
+出力は「項目名: URL」の3行だけにしてください。
 `.trim();
 
-const responseWithoutStructuredOutput = await run(agentWithoutStructuredOutput, prompt, { maxTurns: 5 });
-const responseWithStructuredOutput = await run(agentWithStructuredOutput, prompt, { maxTurns: 5 });
-
-displayComparison({
-  withStructuredOutput: responseWithStructuredOutput.finalOutput,
-  withoutStructuredOutput: responseWithoutStructuredOutput.finalOutput,
-});
-
-function displayComparison(results: { withStructuredOutput: unknown; withoutStructuredOutput: unknown }) {
-  console.log('\n=== なし ===\n');
-  console.log(`型: ${typeof results.withoutStructuredOutput}`);
-  displayFinalOutput(results.withoutStructuredOutput);
-  console.log('\n=== あり ===\n');
-  console.log(`型: ${typeof results.withStructuredOutput}`);
-  if (isSurveyAnalysis(results.withStructuredOutput)) {
-    console.log(
-      `averageScore=${results.withStructuredOutput.averageScore}, handsOnCompletionRate=${results.withStructuredOutput.handsOnCompletionRate}, hardestTopics=${results.withStructuredOutput.hardestTopics.join('/')}`
-    );
-  } else {
-    displayFinalOutput(results.withStructuredOutput);
+const responseWithoutHostedSearch = await run(
+  agentWithoutHostedSearch,
+  `
+${requestBase}
+外部検索ツールは使えません。手元のモデル知識だけで回答してください。
+`.trim(),
+  {
+    maxTurns: 5,
   }
+);
+const responseWithHostedSearch = await run(
+  agent,
+  `
+${requestBase}
+必ず web_search を使ってURLを確認してください。
+`.trim(),
+  {
+    maxTurns: 5,
+  }
+);
+displayResults(responseWithoutHostedSearch.finalOutput, responseWithHostedSearch.finalOutput);
+displayHostedSearchCalls(responseWithHostedSearch.newItems);
+
+function displayResults(finalOutputWithoutHostedSearch: unknown, finalOutputWithHostedSearch: unknown) {
+  console.log('\n=== Hosted web searchなしの最終出力 ===\n');
+  console.log(outputToText(finalOutputWithoutHostedSearch));
+  console.log('\n=== Hosted web searchありの最終出力 ===\n');
+  console.log(outputToText(finalOutputWithHostedSearch));
 }
 
-function displayFinalOutput(finalOutput: unknown) {
-  console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
+function displayHostedSearchCalls(items: { toJSON(): unknown }[]) {
+  console.log('\n=== Hosted web search呼び出し ===\n');
+  console.dir(extractHostedSearchCalls(items), { depth: null });
 }
 
-function isSurveyAnalysis(value: unknown): value is z.infer<typeof SurveyAnalysis> {
-  return typeof value === 'object' && value !== null && 'averageScore' in value && 'handsOnCompletionRate' in value && 'hardestTopics' in value;
+function outputToText(finalOutput: unknown) {
+  return typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput);
 }
 
-async function readSurveyRows() {
-  const [, ...lines] = (await readFile(new URL('./survey.csv', import.meta.url), 'utf8')).trim().split('\n');
-  return lines.map((line) => {
-    const [, , , satisfaction, hardestTopic, handsOnCompleted, , request] = line.split(',');
-    return {
-      handsOnCompleted: handsOnCompleted === '完了',
-      hardestTopic: hardestTopic ?? '',
-      request: request ?? '',
-      satisfaction: Number(satisfaction),
+function extractHostedSearchCalls(items: { toJSON(): unknown }[]) {
+  return items.flatMap((item) => {
+    const itemJson = item.toJSON() as {
+      rawItem?: {
+        name?: string;
+        status?: string;
+        type?: string;
+        providerData?: { action?: unknown };
+      };
     };
+    if (itemJson.rawItem?.type !== 'hosted_tool_call' || itemJson.rawItem.name !== 'web_search_call') {
+      return [];
+    }
+    return [
+      {
+        status: itemJson.rawItem.status,
+        action: itemJson.rawItem.providerData?.action,
+      },
+    ];
   });
-}
-
-function computeSurveyStatsFromRows(rows: Awaited<ReturnType<typeof readSurveyRows>>) {
-  const topicCounts = new Map<string, number>();
-  for (const row of rows) {
-    topicCounts.set(row.hardestTopic, (topicCounts.get(row.hardestTopic) ?? 0) + 1);
-  }
-  const maxTopicCount = Math.max(...topicCounts.values());
-  return {
-    averageSatisfaction: rows.reduce((sum, row) => sum + row.satisfaction, 0) / rows.length,
-    handsOnCompletionRate: rows.filter((row) => row.handsOnCompleted).length / rows.length,
-    hardestTopics: [...topicCounts.entries()].filter(([, count]) => count === maxTopicCount).map(([topic]) => topic),
-    respondentCount: rows.length,
-  };
 }
