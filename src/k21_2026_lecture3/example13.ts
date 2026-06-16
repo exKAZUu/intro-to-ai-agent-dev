@@ -24,7 +24,7 @@ try {
     mcpServers: [mcpServer],
   });
 
-  const surveyCsv = await readSurveyCsv();
+  const surveyCsv = await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
   const workbookPath = await createSurveyWorkbook();
   const response = await run(
     agent,
@@ -61,8 +61,4 @@ async function createSurveyWorkbook() {
   const workbookPath = fileURLToPath(new URL(`./survey-scores-${timestamp}.xlsx`, import.meta.url));
   await copyFile(new URL('./scores.xlsx', import.meta.url), workbookPath);
   return workbookPath;
-}
-
-async function readSurveyCsv() {
-  return await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
 }

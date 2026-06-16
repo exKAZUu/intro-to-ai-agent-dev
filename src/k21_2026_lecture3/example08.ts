@@ -20,7 +20,7 @@ const agentWithCodeInterpreter = new Agent({
   tools: [codeInterpreterTool()],
 });
 
-const csv = await readSurveyCsv();
+const csv = await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
 const promptWithoutCodeInterpreter = buildPrompt(csv, {
   instruction: 'ツールは使えません。CSVを自然文として読んで分析してください。',
 });
@@ -60,8 +60,4 @@ function displayComparison(results: { withCodeInterpreter: unknown; withoutCodeI
 
 function displayFinalOutput(finalOutput: unknown) {
   console.log(typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput));
-}
-
-async function readSurveyCsv() {
-  return await readFile(new URL('./survey.csv', import.meta.url), 'utf8');
 }
