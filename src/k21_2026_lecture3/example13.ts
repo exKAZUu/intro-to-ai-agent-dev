@@ -59,7 +59,7 @@ function displayComparison(workbookPath: string, analysis: SurveyAnalysis) {
   console.log(
     `なし: 解析結果は文章で説明できても、平均満足度 ${analysis.averageSatisfaction} や最頻出トピック ${analysis.topTopics.join(
       ' / '
-    )} を列として反映したExcelファイルは作れません。`
+    )} を反映したExcelファイルは作れません。`
   );
   console.log(`あり: Excel MCP Server のツールで、解析結果を反映した workbook を作成しました: ${workbookPath}`);
 }
@@ -92,36 +92,20 @@ function analyzeSurvey(rows: SurveyRow[]): SurveyAnalysis {
   const topTopics = Object.entries(topicCounts)
     .filter(([, count]) => count === maxTopicCount)
     .map(([topic]) => topic);
-  const incompleteCount = rows.filter((row) => row.hands_on_completed === '未完了').length;
-  const lowSatisfactionCount = rows.filter((row) => Number(row.satisfaction) <= 3).length;
   const detailRows = [
     [
       'participant_id',
-      'attendance_type',
-      'experience_level',
       'satisfaction',
       'hardest_topic',
-      'hands_on_completed',
-      'prep_minutes',
       'request',
-      'satisfaction_gap_from_average',
       'follow_up_priority',
-      'hardest_topic_is_most_frequent',
-      'follow_up_focus',
     ],
     ...rows.map((row) => [
       row.participant_id,
-      row.attendance_type,
-      row.experience_level,
       Number(row.satisfaction),
       row.hardest_topic,
-      row.hands_on_completed,
-      Number(row.prep_minutes),
       row.request,
-      roundToOneDecimal(Number(row.satisfaction) - averageSatisfaction),
       needsFollowUp(row) ? '要フォロー' : '通常',
-      topTopics.includes(row.hardest_topic) ? '最多トピック' : '',
-      focusForTopic(row.hardest_topic),
     ]),
   ];
   const summaryRows = [
@@ -129,17 +113,9 @@ function analyzeSurvey(rows: SurveyRow[]): SurveyAnalysis {
     ['回答数', rows.length],
     ['平均満足度', averageSatisfaction],
     ['最頻出の難所', topTopics.join(' / ')],
-    ['ハンズオン未完了数', incompleteCount],
-    ['満足度3以下の回答数', lowSatisfactionCount],
-    ['', ''],
-    ['難所トピック', '回答数'],
-    ...Object.entries(topicCounts).sort(([, a], [, b]) => b - a),
     ['', ''],
     ['追加列', '意味'],
-    ['satisfaction_gap_from_average', '個別満足度と平均満足度の差'],
     ['follow_up_priority', '低満足度またはハンズオン未完了の参加者を要フォローに分類'],
-    ['hardest_topic_is_most_frequent', '全体で最も多かった難所トピックに該当するか'],
-    ['follow_up_focus', '難所トピックに応じた補足観点'],
   ];
   return { averageSatisfaction, detailRows, summaryRows, topTopics };
 }
@@ -154,16 +130,6 @@ function countBy(values: string[]): Record<string, number> {
 
 function needsFollowUp(row: SurveyRow): boolean {
   return Number(row.satisfaction) <= 3 || row.hands_on_completed === '未完了';
-}
-
-function focusForTopic(topic: string): string {
-  const focuses: Record<string, string> = {
-    MCP: 'MCP接続手順と既存ツール連携の補足',
-    guardrails: '入出力guardrailの判断基準と失敗例',
-    'structured output': 'スキーマ設計からアプリ連携までの補足',
-    tools: 'ツール設計とエラー処理の補足',
-  };
-  return focuses[topic] ?? '個別コメントの確認';
 }
 
 function rangeOf(rows: unknown[][]): string {
