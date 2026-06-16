@@ -60,24 +60,34 @@ function displayComparison() {
 }
 
 function extractMcpItems(items: { toJSON(): unknown }[]) {
-  return items.flatMap((item) => {
+  const calls = new Map<string, { arguments?: string; name?: string; output?: string }>();
+  for (const item of items) {
     const itemJson = item.toJSON() as {
       rawItem?: {
+        callId?: string;
         name?: string;
-        serverLabel?: string;
         type?: string;
         arguments?: string;
       };
+      output?: string;
     };
-    if (itemJson.rawItem?.type !== 'mcp_call') {
-      return [];
+    const callId = itemJson.rawItem?.callId;
+    if (!callId) {
+      continue;
     }
-    return [
-      {
+    const current = calls.get(callId) ?? {};
+    if (itemJson.rawItem?.type === 'function_call') {
+      calls.set(callId, {
+        ...current,
         arguments: itemJson.rawItem.arguments,
         name: itemJson.rawItem.name,
-        server: itemJson.rawItem.serverLabel,
-      },
-    ];
-  });
+      });
+    } else if (itemJson.rawItem?.type === 'function_call_result') {
+      calls.set(callId, {
+        ...current,
+        output: itemJson.output,
+      });
+    }
+  }
+  return [...calls.values()];
 }
