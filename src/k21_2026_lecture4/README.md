@@ -22,6 +22,7 @@
    - `example11.ts`: 実装担当 thread とレビュー担当 thread を分け、レビュー結果を実装担当へ戻します。
    - `example12.ts`: `resumeThread()` で中断した開発作業を別プロセス想定で再開します。
    - `example13.ts`: `webSearchMode` で外部公式情報とローカルコードベース文脈を組み合わせます。
+   - `example14.ts`: Agents SDK と Codex SDK に同じ単発依頼を投げ、usage の違いを比較します。
 
 ## プログラム例
 
@@ -64,6 +65,9 @@
 - `example13.ts`
   - 概要: ローカルの Codex SDK 使用コードを読み、web search で公式情報を確認して改善案を出します。web search が使えない環境ではローカル文脈のみの調査にフォールバックします。
   - 学習のねらい: 外部情報検索だけでなく、ローカルコードベース文脈と組み合わせるところに Codex SDK の価値があることを確認します。
+- `example14.ts`
+  - 概要: 架空のインシデント引き継ぎメモを同じ入力として Agents SDK と Codex SDK の両方に渡し、回答と usage を比較します。
+  - 学習のねらい: 同じ単発依頼でも、SDK が組み立てる実行文脈やループが異なるため、トークン使用量や item の見え方が一致しないことを確認します。
 
 ## 補足
 
@@ -75,5 +79,5 @@
 - `workspace-write` の例では、必要に応じて `skipGitRepoCheck: true` を使います。
 - `example06` 以降は `workspace-write` を使う例が含まれます。講義では、どの時点で read-only から書き込み権限へ切り替えるかを明示してください。
 - コマンド実行例では、node を mise などで管理している環境でも教材プロンプトに環境固有の変数を混ぜないため、Codex CLI 側の `MISE_CACHE_DIR` を一時ワークスペースの `.mise-cache` に設定し、`.git/info/exclude` で git の表示から除外しています。
-- `example12.ts` は初回実行だけでは計画で止まります。表示された再開コマンドを実行すると、同じ thread と OS の一時ディレクトリ配下にある `k21-codex-resume-workflow` の作業ディレクトリを使って実装と検証を続けます。
+- `example12.ts` は初回実行だけでは計画で止まります。表示された再開コマンドを実行すると、同じ thread と初回実行時に作成した一時ワークスペースを使って実装と検証を続けます。
 - `example13.ts` は `webSearchMode: 'live'` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。web search が失敗した場合は、ローカルコード文脈だけで補足点を出すフォールバックを実行します。

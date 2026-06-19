@@ -3,7 +3,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
@@ -31,8 +31,7 @@ if (threadId && existingWorkspace) {
 }
 
 async function planWork() {
-  const workspace = join(tmpdir(), 'k21-codex-resume-workflow');
-  await mkdir(workspace, { recursive: true });
+  const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-resume-workflow-'));
   await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
   await writeFile(
     join(workspace, 'task.md'),
