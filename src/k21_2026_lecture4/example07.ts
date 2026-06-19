@@ -1,5 +1,5 @@
 /**
- * workspace-write sandboxでファイル編集を許可し、file_changeを観察する例。
+ * Hosted code interpreter相当の表形式データ処理を、Codex SDKのファイル作成とコマンド実行で置き換える例。
  */
 
 import { execFile } from 'node:child_process';
@@ -10,7 +10,6 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
-  assertCommandSucceeded,
   createCodexEnv,
   createExampleWorkspace,
   displayCommandExecutions,
@@ -22,10 +21,10 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await createExampleWorkspace('example07', 'k21-codex-workspace-write-');
-const catalogPath = join(workspace, 'lessonCatalog.js');
+const workspace = await createExampleWorkspace('example07', 'k21-codex-code-interpreter-');
+const scriptPath = join(workspace, 'scripts', 'analyze-survey.js');
+const readmePath = join(workspace, 'README.md');
 await execFileAsync('git', ['init'], { cwd: workspace });
-await execFileAsync('git', ['add', 'lessonCatalog.js'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });
 const thread = codex.startThread({
@@ -37,19 +36,21 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-lessonCatalog.js を編集し、lesson が不正な場合は分かりやすい Error を投げるようにしてください。
-title は空でない文字列、minutes は正の数であることを確認してください。
-編集後に node -e "import('node:assert/strict').then(async ({default: assert}) => { const {describeLesson} = await import('./lessonCatalog.js'); assert.equal(describeLesson({title:'Codex SDK', minutes:15}), 'Codex SDK: 15分'); assert.throws(() => describeLesson(null), /lesson|title|minutes/); assert.throws(() => describeLesson({title:'', minutes:15}), /title/); assert.throws(() => describeLesson({title:'Codex SDK', minutes:0}), /minutes/); console.log('ok'); })" を実行して動作確認してください。
-最後に git diff -- lessonCatalog.js で差分を確認してください。
+scripts/analyze-survey.js を作成し、survey.csv を読み込んで分析してください。
+package.json の analyze script で実行できるようにし、README.md に実行手順を追記してください。
+node scripts/analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所を確認してください。
+最頻出の難所が同数なら、すべて出してください。
+スクリプトはJSONを標準出力する形にしてください。
+最終回答には、実行したコマンドとJSONの要点を含めてください。
 `.trim());
 
 displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 編集後のlessonCatalog.js ===\n');
-console.log(await readFile(catalogPath, 'utf8'));
+console.log('\n=== 作成されたanalyze-survey.js ===\n');
+console.log(await readFile(scriptPath, 'utf8'));
+console.log('\n=== 更新されたREADME.md ===\n');
+console.log(await readFile(readmePath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
-assertCommandSucceeded(turn.items, 'node -e');
-assertCommandSucceeded(turn.items, 'git diff -- lessonCatalog.js');
 displayThreadInfo(thread.id, turn.usage);

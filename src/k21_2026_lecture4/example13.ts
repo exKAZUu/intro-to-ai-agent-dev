@@ -1,94 +1,95 @@
 /**
- * webSearchModeで公式情報を確認し、ローカルコードベース文脈と組み合わせる例。
+ * resumeThreadを使い、中断した開発作業を別プロセス想定で再開する例。
  */
 
-import { Codex, type RunResult } from '@openai/codex-sdk';
+import { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 
-import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
+import { Codex } from '@openai/codex-sdk';
 
-const codex = new Codex();
-const liveSearchTimeoutMs = 60_000;
-let usedFallback = false;
+import {
+  assertNoFileChanges,
+  createCodexEnv,
+  createExampleWorkspace,
+  displayCommandExecutions,
+  displayFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayThreadInfo,
+  displayWorkspace,
+} from './helpers.js';
 
-const prompt = `
-src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example06.ts を読み、Codex SDKの使い方を確認してください。
-さらにweb searchでCodex SDKまたはOpenAI公式ドキュメントの関連情報を確認し、授業で補足すべき注意点を3つ挙げてください。
-参照先はOpenAI公式ドキュメントまたはCodex SDKの公式情報に限定してください。
-ファイルは変更しないでください。
-`.trim();
+const execFileAsync = promisify(execFile);
+const threadId = getArgValue('--thread');
+const existingWorkspace = getArgValue('--workspace');
 
-let thread = codex.startThread({
-  workingDirectory: process.cwd(),
-  sandboxMode: 'read-only',
-  approvalPolicy: 'never',
-  webSearchMode: 'live',
-  modelReasoningEffort: 'low',
-});
-
-let turn: RunResult;
-try {
-  turn = await runWithTimeout(prompt, liveSearchTimeoutMs);
-} catch (error) {
-  usedFallback = true;
-  turn = await runLocalFallback(`run()が例外を投げました: ${error instanceof Error ? error.message : String(error)}`);
+if (threadId && existingWorkspace) {
+  await resumeWork(threadId, existingWorkspace);
+} else {
+  await planWork();
 }
 
-if (!usedFallback && shouldFallbackFromLiveSearchResult(turn)) {
-  usedFallback = true;
-  turn = await runLocalFallback(createFallbackReason(turn));
-}
+async function planWork() {
+  const workspace = await createExampleWorkspace('example13', 'k21-codex-resume-workflow-');
+  await execFileAsync('git', ['init'], { cwd: workspace });
 
-displayFinalResponse('調査結果', turn.finalResponse);
-if (usedFallback) console.log('\nweb searchを確認できなかったため、ローカル文脈のみでフォールバックしました。');
-displayItemSummary(turn.items);
-displayWebSearches(turn.items);
-assertNoFileChanges(turn.items);
-displayThreadInfo(thread.id, turn.usage);
-
-async function runLocalFallback(reason: string) {
-  thread = codex.startThread({
-    workingDirectory: process.cwd(),
+  const codex = new Codex({ env: createCodexEnv(workspace) });
+  const thread = codex.startThread({
+    workingDirectory: workspace,
+    skipGitRepoCheck: true,
     sandboxMode: 'read-only',
     approvalPolicy: 'never',
-    webSearchMode: 'disabled',
     modelReasoningEffort: 'low',
   });
-  return await thread.run(`
-web search が利用できない、または利用できたことを確認できない環境として扱います。
-src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example06.ts を読み、
-ローカルコード文脈だけから授業で補足すべき注意点を3つ挙げてください。
-公式情報の確認は講師デモまたは環境設定後に行う必要があることも含めてください。
-ファイルは変更しないでください。
 
-fallback理由:
-${reason}
+  const plan = await thread.run(`
+task.md と validator.test.js を読み、実装計画を2点で作ってください。
+まだファイルは作成しないでください。
 `.trim());
-}
 
-async function runWithTimeout(prompt: string, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await thread.run(prompt, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
+  if (!thread.id) {
+    throw new Error('Codex thread IDを取得できませんでした。');
   }
+
+  displayWorkspace(workspace);
+  displayFinalResponse('計画', plan.finalResponse);
+  displayItemSummary(plan.items);
+  assertNoFileChanges(plan.items);
+  displayThreadInfo(thread.id, plan.usage);
+  console.log('\n=== 再開コマンド ===\n');
+  console.log(`bun src/k21_2026_lecture4/example13.ts --thread ${thread.id} --workspace ${workspace}`);
 }
 
-function shouldFallbackFromLiveSearchResult(turn: RunResult) {
-  return hasErrorItem(turn) || !hasWebSearchItem(turn);
+async function resumeWork(threadId: string, workspace: string) {
+  const codex = new Codex({ env: createCodexEnv(workspace) });
+  const resumedThread = codex.resumeThread(threadId, {
+    workingDirectory: workspace,
+    skipGitRepoCheck: true,
+    sandboxMode: 'workspace-write',
+    approvalPolicy: 'never',
+    modelReasoningEffort: 'low',
+  });
+
+  const implementation = await resumedThread.run(`
+先ほどの計画に基づき validator.js を作成してください。
+node --test validator.test.js を実行し、すべてのテストが通ることを確認してください。
+失敗した場合は validator.js を修正し、同じコマンドで再検証してください。
+`.trim());
+
+  displayWorkspace(workspace);
+  displayFinalResponse('resume後の実装', implementation.finalResponse);
+  displayItemSummary(implementation.items);
+  displayFileChanges(implementation.items);
+  displayCommandExecutions(implementation.items);
+  displayThreadInfo(resumedThread.id, implementation.usage);
+  console.log('\n=== validator.js ===\n');
+  console.log(await readFile(join(workspace, 'validator.js'), 'utf8'));
 }
 
-function createFallbackReason(turn: RunResult) {
-  const errors = turn.items.flatMap((item) => (item.type === 'error' ? [item.message] : []));
-  if (errors.length > 0) return `error itemが返りました: ${errors.join(' / ')}`;
-  return 'webSearchMode: live で実行しましたが、web_search itemを確認できませんでした。';
-}
-
-function hasErrorItem(turn: RunResult) {
-  return turn.items.some((item) => item.type === 'error');
-}
-
-function hasWebSearchItem(turn: RunResult) {
-  return turn.items.some((item) => item.type === 'web_search');
+function getArgValue(name: string) {
+  const index = process.argv.indexOf(name);
+  if (index === -1) return undefined;
+  return process.argv[index + 1];
 }

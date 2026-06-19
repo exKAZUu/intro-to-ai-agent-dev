@@ -1,5 +1,5 @@
 /**
- * 実装担当threadとレビュー担当threadを分け、レビュー結果を実装担当へ戻す例。
+ * 1つのCodex threadで、調査、計画、実装、検証を段階的に進める例。
  */
 
 import { execFile } from 'node:child_process';
@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  assertNoCommandMatching,
   assertNoFileChanges,
   createCodexEnv,
   createExampleWorkspace,
@@ -22,25 +23,11 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await createExampleWorkspace('example11', 'k21-codex-implement-review-');
-const filePath = join(workspace, 'featureFlags.js');
+const workspace = await createExampleWorkspace('example11', 'k21-codex-staged-workflow-');
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });
-const implementer = codex.startThread({
-  workingDirectory: workspace,
-  skipGitRepoCheck: true,
-  sandboxMode: 'workspace-write',
-  approvalPolicy: 'never',
-  modelReasoningEffort: 'low',
-});
-
-const implementation = await implementer.run(`
-featureFlags.md を読み、featureFlags.js の parseFeatureFlags を仕様に合わせて修正してください。
-まずは featureFlags.js の変更だけを行い、テスト実行はレビュー後に行います。
-`.trim());
-
-const reviewer = codex.startThread({
+const investigationThread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
   sandboxMode: 'read-only',
@@ -48,33 +35,47 @@ const reviewer = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const review = await reviewer.run(`
-featureFlags.js と featureFlags.test.js を読み、実装担当の成果物をレビューしてください。
-特に boolean 変換、空入力、キーの欠落、テスト未実行のリスクを確認してください。
-修正案は文章で提案するだけにし、ファイルは絶対に変更しないでください。
-`.trim());
-
-const fix = await implementer.run(`
-レビュー担当から次の指摘がありました。
-
-${review.finalResponse}
-
-指摘を踏まえて featureFlags.js を修正し、node --test featureFlags.test.js を実行してください。
-失敗した場合は再修正し、同じコマンドでテストが通ることを確認してください。
-`.trim());
-
 displayWorkspace(workspace);
-displayFinalResponse('実装担当 初回', implementation.finalResponse);
+
+const investigation = await investigationThread.run(`
+README.md と registration.test.js を読み、必要な実装作業を2点で整理してください。
+このturnではファイルを変更できない read-only sandbox で調査だけを行っています。
+`.trim());
+displayFinalResponse('調査', investigation.finalResponse);
+displayItemSummary(investigation.items);
+assertNoFileChanges(investigation.items);
+
+if (!investigationThread.id) {
+  throw new Error('Codex thread IDを取得できませんでした。');
+}
+
+const thread = codex.resumeThread(investigationThread.id, {
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
+
+const implementation = await thread.run(`
+調査結果に基づき registration.js を作成してください。
+実行確認は次のturnで行うので、このturnでは実装だけをしてください。
+`.trim());
+displayFinalResponse('実装', implementation.finalResponse);
 displayItemSummary(implementation.items);
 displayFileChanges(implementation.items);
-displayFinalResponse('レビュー担当', review.finalResponse);
-displayItemSummary(review.items);
-assertNoFileChanges(review.items);
-displayFinalResponse('実装担当 修正後', fix.finalResponse);
-displayItemSummary(fix.items);
-displayFileChanges(fix.items);
-displayCommandExecutions(fix.items);
-displayThreadInfo(implementer.id, fix.usage);
-displayThreadInfo(reviewer.id, review.usage);
-console.log('\n=== featureFlags.js ===\n');
-console.log(await readFile(filePath, 'utf8'));
+displayCommandExecutions(implementation.items);
+assertNoCommandMatching(implementation.items, 'node --test registration.test.js');
+
+const verification = await thread.run(`
+node --test registration.test.js を実行し、すべてのテストが通ることを確認してください。
+失敗した場合は registration.js を修正し、同じコマンドで再検証してください。
+確認したコマンドと結果を回答に含めてください。
+`.trim());
+displayFinalResponse('検証', verification.finalResponse);
+displayItemSummary(verification.items);
+displayFileChanges(verification.items);
+displayCommandExecutions(verification.items);
+displayThreadInfo(thread.id, verification.usage);
+console.log('\n=== registration.js ===\n');
+console.log(await readFile(join(workspace, 'registration.js'), 'utf8'));

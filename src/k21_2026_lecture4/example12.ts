@@ -1,5 +1,5 @@
 /**
- * resumeThreadを使い、中断した開発作業を別プロセス想定で再開する例。
+ * 実装担当threadとレビュー担当threadを分け、レビュー結果を実装担当へ戻す例。
  */
 
 import { execFile } from 'node:child_process';
@@ -22,74 +22,59 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const threadId = getArgValue('--thread');
-const existingWorkspace = getArgValue('--workspace');
+const workspace = await createExampleWorkspace('example12', 'k21-codex-implement-review-');
+const filePath = join(workspace, 'featureFlags.js');
+await execFileAsync('git', ['init'], { cwd: workspace });
 
-if (threadId && existingWorkspace) {
-  await resumeWork(threadId, existingWorkspace);
-} else {
-  await planWork();
-}
+const codex = new Codex({ env: createCodexEnv(workspace) });
+const implementer = codex.startThread({
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
 
-async function planWork() {
-  const workspace = await createExampleWorkspace('example12', 'k21-codex-resume-workflow-');
-  await execFileAsync('git', ['init'], { cwd: workspace });
-
-  const codex = new Codex({ env: createCodexEnv(workspace) });
-  const thread = codex.startThread({
-    workingDirectory: workspace,
-    skipGitRepoCheck: true,
-    sandboxMode: 'read-only',
-    approvalPolicy: 'never',
-    modelReasoningEffort: 'low',
-  });
-
-  const plan = await thread.run(`
-task.md と validator.test.js を読み、実装計画を2点で作ってください。
-まだファイルは作成しないでください。
+const implementation = await implementer.run(`
+featureFlags.md を読み、featureFlags.js の parseFeatureFlags を仕様に合わせて修正してください。
+まずは featureFlags.js の変更だけを行い、テスト実行はレビュー後に行います。
 `.trim());
 
-  if (!thread.id) {
-    throw new Error('Codex thread IDを取得できませんでした。');
-  }
+const reviewer = codex.startThread({
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'read-only',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
 
-  displayWorkspace(workspace);
-  displayFinalResponse('計画', plan.finalResponse);
-  displayItemSummary(plan.items);
-  assertNoFileChanges(plan.items);
-  displayThreadInfo(thread.id, plan.usage);
-  console.log('\n=== 再開コマンド ===\n');
-  console.log(`bun src/k21_2026_lecture4/example12.ts --thread ${thread.id} --workspace ${workspace}`);
-}
-
-async function resumeWork(threadId: string, workspace: string) {
-  const codex = new Codex({ env: createCodexEnv(workspace) });
-  const resumedThread = codex.resumeThread(threadId, {
-    workingDirectory: workspace,
-    skipGitRepoCheck: true,
-    sandboxMode: 'workspace-write',
-    approvalPolicy: 'never',
-    modelReasoningEffort: 'low',
-  });
-
-  const implementation = await resumedThread.run(`
-先ほどの計画に基づき validator.js を作成してください。
-node --test validator.test.js を実行し、すべてのテストが通ることを確認してください。
-失敗した場合は validator.js を修正し、同じコマンドで再検証してください。
+const review = await reviewer.run(`
+featureFlags.js と featureFlags.test.js を読み、実装担当の成果物をレビューしてください。
+特に boolean 変換、空入力、キーの欠落、テスト未実行のリスクを確認してください。
+修正案は文章で提案するだけにし、ファイルは絶対に変更しないでください。
 `.trim());
 
-  displayWorkspace(workspace);
-  displayFinalResponse('resume後の実装', implementation.finalResponse);
-  displayItemSummary(implementation.items);
-  displayFileChanges(implementation.items);
-  displayCommandExecutions(implementation.items);
-  displayThreadInfo(resumedThread.id, implementation.usage);
-  console.log('\n=== validator.js ===\n');
-  console.log(await readFile(join(workspace, 'validator.js'), 'utf8'));
-}
+const fix = await implementer.run(`
+レビュー担当から次の指摘がありました。
 
-function getArgValue(name: string) {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return undefined;
-  return process.argv[index + 1];
-}
+${review.finalResponse}
+
+指摘を踏まえて featureFlags.js を修正し、node --test featureFlags.test.js を実行してください。
+失敗した場合は再修正し、同じコマンドでテストが通ることを確認してください。
+`.trim());
+
+displayWorkspace(workspace);
+displayFinalResponse('実装担当 初回', implementation.finalResponse);
+displayItemSummary(implementation.items);
+displayFileChanges(implementation.items);
+displayFinalResponse('レビュー担当', review.finalResponse);
+displayItemSummary(review.items);
+assertNoFileChanges(review.items);
+displayFinalResponse('実装担当 修正後', fix.finalResponse);
+displayItemSummary(fix.items);
+displayFileChanges(fix.items);
+displayCommandExecutions(fix.items);
+displayThreadInfo(implementer.id, fix.usage);
+displayThreadInfo(reviewer.id, review.usage);
+console.log('\n=== featureFlags.js ===\n');
+console.log(await readFile(filePath, 'utf8'));

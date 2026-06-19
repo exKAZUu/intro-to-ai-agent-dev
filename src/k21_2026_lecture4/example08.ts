@@ -1,5 +1,5 @@
 /**
- * バグ修正と検証コマンド実行をCodexに任せる例。
+ * workspace-write sandboxでファイル編集を許可し、file_changeを観察する例。
  */
 
 import { execFile } from 'node:child_process';
@@ -22,9 +22,10 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await createExampleWorkspace('example08', 'k21-codex-fix-verify-');
-const scriptPath = join(workspace, 'discount.js');
+const workspace = await createExampleWorkspace('example08', 'k21-codex-workspace-write-');
+const catalogPath = join(workspace, 'lessonCatalog.js');
 await execFileAsync('git', ['init'], { cwd: workspace });
+await execFileAsync('git', ['add', 'lessonCatalog.js'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });
 const thread = codex.startThread({
@@ -36,18 +37,19 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-discount.js には割引後価格を計算するバグがあります。
-node --test discount.test.js を実行して失敗を確認し、discount.js を修正してください。
-修正後に同じテストコマンドを再実行し、すべて通ることを確認してください。
-修正理由、確認したコマンド、確認結果を最終回答にも含めてください。
+lessonCatalog.js を編集し、lesson が不正な場合は分かりやすい Error を投げるようにしてください。
+title は空でない文字列、minutes は正の数であることを確認してください。
+編集後に node -e "import('node:assert/strict').then(async ({default: assert}) => { const {describeLesson} = await import('./lessonCatalog.js'); assert.equal(describeLesson({title:'Codex SDK', minutes:15}), 'Codex SDK: 15分'); assert.throws(() => describeLesson(null), /lesson|title|minutes/); assert.throws(() => describeLesson({title:'', minutes:15}), /title/); assert.throws(() => describeLesson({title:'Codex SDK', minutes:0}), /minutes/); console.log('ok'); })" を実行して動作確認してください。
+最後に git diff -- lessonCatalog.js で差分を確認してください。
 `.trim());
 
 displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 修正後のdiscount.js ===\n');
-console.log(await readFile(scriptPath, 'utf8'));
+console.log('\n=== 編集後のlessonCatalog.js ===\n');
+console.log(await readFile(catalogPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
-assertCommandSucceeded(turn.items, 'node --test discount.test.js', { minCount: 2 });
+assertCommandSucceeded(turn.items, 'node -e');
+assertCommandSucceeded(turn.items, 'git diff -- lessonCatalog.js');
 displayThreadInfo(thread.id, turn.usage);

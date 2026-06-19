@@ -1,1 +1,1 @@
-{"type":"module"}
+{"type":"module","scripts":{"analyze":"node scripts/analyze-survey.js"}}
