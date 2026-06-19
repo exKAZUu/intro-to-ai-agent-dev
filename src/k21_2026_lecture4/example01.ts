@@ -16,8 +16,10 @@ await writeFile(
   `
 # 受講者からの相談
 
-前回までに学んだ内容と今回の内容がどうつながるのか、まだ整理できていません。
-場面ごとの判断基準を知りたいです。
+第3回ではAgents SDKを使って、ユーザーからの相談を受け付けたり、toolsやMCPで外部機能を呼び出したりするエージェントを作りました。
+第4回ではCodex SDKを使うと聞きましたが、似たようなエージェント実行に見えてしまい、どちらを選べばよいのか迷っています。
+たとえば、受講者からの質問に答えるチャット、社内資料を参照する業務支援、リポジトリを読んでバグ修正案を出す開発支援、実際にテストを実行して修正する作業では、それぞれどちらを使うべきですか。
+両方を組み合わせるなら、どこで役割を分けると自然ですか。
 `.trim()
 );
 
@@ -30,13 +32,7 @@ const thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(`
-request.md を読み、講義受付エージェントとして日本語で回答してください。
-回答は4文以内にしてください。
-第3回はAgents SDK、第4回はCodex SDKを指すものとして扱ってください。
-アプリ内エージェント、コードベースを読む開発作業、両者を組み合わせるワークフローの3観点で判断基準を示してください。
-ファイルは変更しないでください。
-`.trim());
+const turn = await thread.run('request.md を読み、講義受付エージェントとして日本語で4文以内で回答してください。');
 
 displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
