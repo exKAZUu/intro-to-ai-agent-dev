@@ -67,7 +67,7 @@
   - 学習のねらい: 外部情報検索だけでなく、ローカルコードベース文脈と組み合わせるところに Codex SDK の価値があることを確認します。
 - `example14.ts`
   - 概要: 架空のインシデント引き継ぎメモを同じ入力として Agents SDK と Codex SDK の両方に渡し、モデル条件、回答、usage を比較します。
-  - 学習のねらい: 同じ単発依頼でも、SDK が組み立てる実行文脈やループが異なるため、トークン使用量や item の見え方が一致しないことを確認します。既定では Agents SDK に `gpt-5.4-nano`、Codex SDK に Codex CLI の既定モデルを使い、`SDK_COMPARE_MODEL` などで条件を揃えた場合も usage 項目の定義差があるため、厳密な項目比較ではないことを出力します。
+  - 学習のねらい: 同じ単発依頼でも、SDK が組み立てる実行文脈やループが異なるため、トークン使用量や item の見え方が一致しないことを確認します。Agents SDK は `gpt-5.4-nano`、Codex SDK は Codex CLI の既定モデルで固定して実行し、usage 項目の定義差もあるため厳密な項目比較ではないことを出力します。
 
 ## 補足
 
@@ -82,4 +82,4 @@
 - コマンド実行例では、node を mise などで管理している環境でも教材プロンプトに環境固有の変数を混ぜないため、Codex CLI 側の `MISE_CACHE_DIR` を一時ワークスペースの `.mise-cache` に設定し、`.git/info/exclude` で git の表示から除外しています。
 - `example12.ts` は初回実行だけでは計画で止まります。表示された再開コマンドを実行すると、同じ thread と初回実行時に作成した一時ワークスペースを使って実装と検証を続けます。
 - `example13.ts` は `webSearchMode: 'live'` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。`run()` の例外、`error` item、`web_search` item 不在のいずれかを検出した場合は、web search が失敗したとは断定せず、ローカルコード文脈だけで補足点を出すフォールバックを実行します。
-- `example14.ts` は既定で Agents SDK に `gpt-5.4-nano`、Codex SDK に Codex CLI の既定モデルを使います。両方に同じモデル名を明示したい場合は `SDK_COMPARE_MODEL`、片方だけ条件を変えたい場合は `AGENTS_COMPARE_MODEL` または `CODEX_COMPARE_MODEL` で上書きできますが、モデルや usage 項目の定義が違う場合は厳密な usage 比較ではありません。
+- `example14.ts` は Agents SDK に `gpt-5.4-nano`、Codex SDK に Codex CLI の既定モデルを使います。環境変数では切り替えず、プログラム例として毎回同じ条件で実行します。モデルや usage 項目の定義が違うため、厳密な usage 比較ではありません。

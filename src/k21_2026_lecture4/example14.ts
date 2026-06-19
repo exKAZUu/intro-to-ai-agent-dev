@@ -7,10 +7,8 @@ import { Codex, type ThreadOptions, type Usage as CodexUsage } from '@openai/cod
 
 import { displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace } from './helpers.js';
 
-const sharedCompareModel = process.env.SDK_COMPARE_MODEL;
-const agentsModel = process.env.AGENTS_COMPARE_MODEL ?? sharedCompareModel ?? 'gpt-5.4-nano';
-const codexModel = process.env.CODEX_COMPARE_MODEL ?? sharedCompareModel;
-const isSameModel = agentsModel === codexModel;
+const agentsModel = 'gpt-5.4-nano';
+const codexModelLabel = 'Codex CLI default';
 const workspace = process.cwd();
 
 const task = `
@@ -29,7 +27,6 @@ const task = `
 const agentsResult = await run(createAgentsSdkAgent(), task, { maxTurns: 1 });
 const codexThreadOptions: ThreadOptions = {
   approvalPolicy: 'never',
-  ...(codexModel ? { model: codexModel } : {}),
   modelReasoningEffort: 'low',
   sandboxMode: 'read-only',
   workingDirectory: workspace,
@@ -45,12 +42,11 @@ displayJson('usage比較', {
   codexSdk: toComparableCodexUsage(codexResult.usage),
   models: {
     agentsSdk: agentsModel,
-    codexSdk: codexModel ?? 'Codex CLI default',
-    sameModel: isSameModel,
+    codexSdk: codexModelLabel,
+    sameModel: false,
   },
-  comparisonScope: isSameModel
-    ? '同じモデル名を指定しています。差分には、SDKが組み立てるシステム文脈、thread/workspace文脈、実行ループの違いが含まれます。usage項目の定義はSDKごとに異なるため、項目単位の完全一致ではなく傾向を見る比較です。'
-    : 'モデル名が異なるため、これは厳密なSDK差分比較ではありません。SDK_COMPARE_MODEL、AGENTS_COMPARE_MODEL、CODEX_COMPARE_MODELで条件を揃えてください。',
+  comparisonScope:
+    'この例では Agents SDK のモデル名を固定し、Codex SDK はローカル Codex CLI の既定モデルを使います。モデル名とSDKが組み立てる文脈が異なるため、これは厳密なトークン量比較ではありません。',
   note: '同じユーザー依頼でも、SDKが組み立てる文脈や実行ループが異なるため、トークン量は一致しません。usage項目の定義もSDKごとに異なるため、項目単位の完全一致ではなく傾向を見る比較です。',
 });
 displayJson('Agents SDK raw response数', {
