@@ -7,6 +7,7 @@ import { Codex, type RunResult } from '@openai/codex-sdk';
 import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
 
 const codex = new Codex();
+const liveSearchTimeoutMs = 60_000;
 let usedFallback = false;
 
 const prompt = `
@@ -26,7 +27,7 @@ let thread = codex.startThread({
 
 let turn: RunResult;
 try {
-  turn = await thread.run(prompt);
+  turn = await runWithTimeout(prompt, liveSearchTimeoutMs);
 } catch (error) {
   usedFallback = true;
   turn = await runLocalFallback(`run()が例外を投げました: ${error instanceof Error ? error.message : String(error)}`);
@@ -62,6 +63,16 @@ src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example06.ts を読
 fallback理由:
 ${reason}
 `.trim());
+}
+
+async function runWithTimeout(prompt: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await thread.run(prompt, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function shouldFallbackFromLiveSearchResult(turn: RunResult) {

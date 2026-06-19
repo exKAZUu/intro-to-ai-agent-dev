@@ -55,7 +55,7 @@
   - 学習のねらい: レビューでは書き込み権限を渡さないという、アプリケーション側の安全境界を作れることを確認します。
 - `example10.ts`
   - 概要: 1つの thread を read-only で開始して調査だけを行い、同じ thread ID を `workspace-write` で再開して実装と検証を進めます。
-  - 学習のねらい: 独立した単発依頼ではなく、開発文脈を持ち続けるエージェントとして Codex を使います。調査 turn では sandbox と `assertNoFileChanges()` で「変更していない」ことを確認し、実装 turn では `assertNoCommandExecutions()` で「検証は次の turn」と分けたことを確認します。
+  - 学習のねらい: 独立した単発依頼ではなく、開発文脈を持ち続けるエージェントとして Codex を使います。調査 turn では sandbox と `assertNoFileChanges()` で「変更していない」ことを確認し、実装 turn では検証コマンドがまだ実行されていないことを確認します。
 - `example11.ts`
   - 概要: 実装担当 thread がコードを書き、レビュー担当 thread が read-only で検査し、指摘を実装担当へ戻して再修正します。
   - 学習のねらい: Agents SDK の Handoff とは別に、Codex SDK の複数 thread と sandbox 権限で役割分担できることを学びます。これはOSレベルの完全隔離ではなく、ホストアプリが各 turn に渡す役割と権限を分ける設計例です。

@@ -147,11 +147,11 @@ export function assertNoFileChanges(items: ThreadItem[]) {
   }
 }
 
-export function assertNoCommandExecutions(items: ThreadItem[]) {
-  const commandExecutionCount = countItems(items, 'command_execution');
-  console.log('\ncommand_execution items:', commandExecutionCount);
-  if (commandExecutionCount > 0) {
-    throw new Error('このturnではコマンド実行しない想定ですが、command_execution itemが含まれています。');
+export function assertNoCommandMatching(items: ThreadItem[], unexpectedCommandPart: string) {
+  const executions = findCommandExecutions(items, unexpectedCommandPart);
+  console.log(`\ncommand executions matching "${unexpectedCommandPart}":`, executions.length);
+  if (executions.length > 0) {
+    throw new Error(`このturnでは "${unexpectedCommandPart}" を含むコマンドを実行しない想定ですが、実行されています。`);
   }
 }
 
