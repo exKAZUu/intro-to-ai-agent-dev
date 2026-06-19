@@ -7,7 +7,7 @@
 ## 問題構成
 
 1. Agents SDK 的なプログラムを Codex SDK で置き換える
-   - `example01.ts`: `run()` で、受付エージェント風の単発応答を作ります。
+   - `example01.ts`: `run()` で受付エージェント風の単発応答を作り、Agents SDK と Codex SDK の使い分けを確認します。
    - `example02.ts`: `outputSchema` で、分類・優先度付けの構造化出力を受け取ります。
    - `example03.ts`: 同じ thread に連続依頼し、会話状態を使った計画更新を行います。
    - `example04.ts`: `runStreamed()` で、進行中イベントを UI ログのように観察します。
@@ -26,8 +26,8 @@
 ## プログラム例
 
 - `example01.ts`
-  - 概要: 一時ワークスペースの `request.md` を読み、受付エージェント風に短い回答を返します。
-  - 学習のねらい: Agents SDK の `Agent` + `run()` で作る単発エージェントは、Codex SDK の `startThread()` + `run()` でも表現できることを確認します。
+  - 概要: 一時ワークスペースの `request.md` を読み、受付エージェント風に短い回答を返しながら、Agents SDK と Codex SDK の使い分けを整理します。
+  - 学習のねらい: Agents SDK の `Agent` + `run()` で作る単発エージェントは Codex SDK でも表現できますが、アプリ内エージェントには Agents SDK、コードベースを読む開発作業には Codex SDK が向くことを確認します。
 - `example02.ts`
   - 概要: `requests.json` の問い合わせを、カテゴリ、優先度、担当、返信文に分類して JSON で受け取ります。
   - 学習のねらい: Agents SDK の structured output と同じ発想を、Codex SDK の `outputSchema` で扱えることを学びます。
