@@ -1,36 +1,51 @@
 /**
- * CodexのwebSearchModeを有効にし、前例のアンケート分析結果を外部情報で補強する例。
+ * workspace-write sandboxでファイル編集を許可し、file_changeを観察する例。
  */
+
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
+import { displayFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
+
+const execFileAsync = promisify(execFile);
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-workspace-write-'));
+const planPath = join(workspace, 'lecture_plan.md');
+await writeFile(
+  planPath,
+  `
+# 第4回講義案
+
+- Codex SDKを紹介する
+- ファイル編集を見せる
+  `.trim()
+);
+await execFileAsync('git', ['init'], { cwd: workspace });
+await execFileAsync('git', ['add', 'lecture_plan.md'], { cwd: workspace });
 
 const codex = new Codex();
 const thread = codex.startThread({
-  workingDirectory: process.cwd(),
-  sandboxMode: 'read-only',
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
   approvalPolicy: 'never',
-  webSearchMode: 'cached',
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(
-  `
-前の例では、第3回の試行授業アンケートから以下の結果を得ました。
+const turn = await thread.run(`
+lecture_plan.md を編集し、前半は「Agents SDKの代替」、後半は「Codex SDKでしか作りにくい開発ワークフロー」という構成が分かるようにしてください。
+箇条書きには各項目の学習目標も追加してください。
+編集後に git diff -- lecture_plan.md で差分を確認してください。
+`.trim());
 
-- 平均満足度: 3.8
-- 最頻出の難所: tools, MCP
-- 改善アクション: toolsの利用手順を整理する、MCPの基本概念と接続手順を補足する、toolsとMCPを組み合わせた演習を追加する
-
-web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式情報を確認し、このアンケート結果に基づく次回改善案を3つに絞ってください。
-各改善案には、どの難所に対応するか、授業で追加する具体的な演習、参照した情報源を含めてください。
-参照先は OpenAI 公式ドキュメントまたは Agents SDK JavaScript/TypeScript 公式ドキュメントに限定してください。
-ファイルは変更しないでください。
-`.trim()
-);
-
-displayFinalResponse('調査結果', turn.finalResponse);
+displayWorkspace(workspace);
+displayFinalResponse('Codexの回答', turn.finalResponse);
+console.log('\n=== 編集後のlecture_plan.md ===\n');
+console.log(await readFile(planPath, 'utf8'));
 displayItemSummary(turn.items);
-displayWebSearches(turn.items);
+displayFileChanges(turn.items);
 displayThreadInfo(thread.id, turn.usage);

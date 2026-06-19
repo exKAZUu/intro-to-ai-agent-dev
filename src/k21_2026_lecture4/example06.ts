@@ -1,5 +1,5 @@
 /**
- * Codexのコード実行結果をoutputSchemaで構造化し、lecture3のstructured output相当を実現する例。
+ * Hosted code interpreter相当の表形式データ処理を、Codex SDKのファイル作成とコマンド実行で置き換える例。
  */
 
 import { execFile } from 'node:child_process';
@@ -15,14 +15,12 @@ import {
   displayFileChanges,
   displayFinalResponse,
   displayItemSummary,
-  displayJson,
   displayThreadInfo,
   displayWorkspace,
-  parseJson,
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-'));
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-code-interpreter-'));
 const scriptPath = join(workspace, 'analyze-survey.js');
 await writeFile(
   join(workspace, 'survey.csv'),
@@ -37,18 +35,6 @@ Eve,対面,5,tools,完了,業務に近い題材がよい
 );
 await execFileAsync('git', ['init'], { cwd: workspace });
 
-const SurveySchema = {
-  type: 'object',
-  properties: {
-    averageScore: { type: 'number' },
-    handsOnCompletionRate: { type: 'number', description: '0から100の百分率' },
-    hardestTopics: { type: 'array', items: { type: 'string' } },
-    improvementActions: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
-  },
-  required: ['averageScore', 'handsOnCompletionRate', 'hardestTopics', 'improvementActions'],
-  additionalProperties: false,
-} as const;
-
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: workspace,
@@ -58,24 +44,19 @@ const thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(
-  `
+const turn = await thread.run(`
 analyze-survey.js を作成し、survey.csv を読み込んで分析してください。
-node analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
-平均満足度、ハンズオン完了率、最頻出の難所は、必ず作成したスクリプトの計算結果を使ってください。
-ハンズオン完了率は0から100の百分率で返してください。
-改善アクションは、hardest_topic と request の両方に根拠があるものに絞ってください。
-`.trim(),
-  { outputSchema: SurveySchema }
-);
+MISE_CACHE_DIR=$PWD/.mise-cache node analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所を確認してください。
+最頻出の難所が同数なら、すべて出してください。
+スクリプトはJSONを標準出力する形にしてください。
+最終回答には、実行したコマンドとJSONの要点を含めてください。
+`.trim());
 
 displayWorkspace(workspace);
-displayFinalResponse('JSON文字列', turn.finalResponse);
+displayFinalResponse('Codexの回答', turn.finalResponse);
 console.log('\n=== 作成されたanalyze-survey.js ===\n');
 console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
-const parsed = parseJson<{ averageScore: number; handsOnCompletionRate: number }>(turn.finalResponse);
-displayJson('パース後の分析結果', parsed);
 displayThreadInfo(thread.id, turn.usage);

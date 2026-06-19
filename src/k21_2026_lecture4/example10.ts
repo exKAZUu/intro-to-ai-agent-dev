@@ -1,10 +1,12 @@
 /**
- * 複数のCodex threadを使い、実装担当とレビュー担当を分ける例。
+ * 実装担当threadとレビュー担当threadを分け、sandbox権限で役割分担する例。
  */
 
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
@@ -17,9 +19,18 @@ import {
   displayWorkspace,
 } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-multi-thread-'));
-const filePath = join(workspace, 'topics.json');
-await writeFile(filePath, JSON.stringify({ topics: ['tools', 'MCP', 'guardrails'] }, null, 2));
+const execFileAsync = promisify(execFile);
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-implement-review-'));
+const filePath = join(workspace, 'metrics.js');
+await writeFile(
+  filePath,
+  `
+export function average(scores) {
+  return 0;
+}
+`.trim()
+);
+await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex();
 const implementer = codex.startThread({
@@ -31,14 +42,10 @@ const implementer = codex.startThread({
 });
 
 const implementation = await implementer.run(`
-topics.json に各題材の minutes: 23 と objective を追加してください。
-各題材には codexSdkConnection も追加し、第4回のCodex SDKでどの概念に対応するかを書いてください。
-objective は90分ワークショップで観察できる行動として書いてください。
+metrics.js の average(scores) を実装してください。
+空配列なら0を返し、それ以外は平均値を返してください。
+実装後に MISE_CACHE_DIR=$PWD/.mise-cache node -e "import('./metrics.js').then(({average}) => console.log(average([5,3,4,2,5])))" を実行し、3.8が出ることを確認してください。
 `.trim());
-displayWorkspace(workspace);
-displayFinalResponse('実装担当', implementation.finalResponse);
-displayItemSummary(implementation.items);
-displayFileChanges(implementation.items);
 
 const reviewer = codex.startThread({
   workingDirectory: workspace,
@@ -49,14 +56,19 @@ const reviewer = codex.startThread({
 });
 
 const review = await reviewer.run(`
-topics.json を読み、lecture4の教材データとして不足している点をレビューしてください。
-実装担当の出力に対するレビューとして、よい点と不足点を分けてください。
+metrics.js を読み、実装担当の成果物をレビューしてください。
+空配列、数値以外の入力、検証コマンドの観点で短く評価してください。
 ファイルは変更しないでください。
 `.trim());
+
+displayWorkspace(workspace);
+displayFinalResponse('実装担当', implementation.finalResponse);
+displayItemSummary(implementation.items);
+displayFileChanges(implementation.items);
 displayFinalResponse('レビュー担当', review.finalResponse);
 displayItemSummary(review.items);
 assertNoFileChanges(review.items);
 displayThreadInfo(implementer.id, implementation.usage);
 displayThreadInfo(reviewer.id, review.usage);
-console.log('\n=== topics.json ===\n');
+console.log('\n=== metrics.js ===\n');
 console.log(await readFile(filePath, 'utf8'));

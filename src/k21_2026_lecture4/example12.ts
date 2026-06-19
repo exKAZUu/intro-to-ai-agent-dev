@@ -1,10 +1,12 @@
 /**
- * 同じCodex threadで、調査、計画、実装、検証を段階的に進める開発ワークフロー例。
+ * resumeThreadを使い、中断した開発作業を同じ文脈で再開する例。
  */
 
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
@@ -17,11 +19,21 @@ import {
   displayWorkspace,
 } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-workflow-'));
-await writeFile(join(workspace, 'README.md'), '# Lecture workflow sandbox\n');
+const execFileAsync = promisify(execFile);
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-resume-workflow-'));
+await writeFile(
+  join(workspace, 'task.md'),
+  `
+# Task
+
+Create a script named summary.js.
+It should print {"topic":"Codex SDK","phase":"resume","ready":true}.
+`.trim()
+);
+await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex();
-const thread = codex.startThread({
+const firstThread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
   sandboxMode: 'workspace-write',
@@ -29,30 +41,35 @@ const thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-displayWorkspace(workspace);
-
-const plan = await thread.run(`
-第3回のtools/MCP/guardrailsアンケート改善を題材にした、小さなNode.jsレポート生成スクリプトの実装計画を3点で出してください。
-計画には、入力データ、計算、出力JSONを含めてください。
+const plan = await firstThread.run(`
+task.md を読み、実装計画を2点で作ってください。
+まだファイルは作成しないでください。
 `.trim());
+
+if (!firstThread.id) {
+  throw new Error('Codex thread IDを取得できませんでした。');
+}
+
+const resumedThread = codex.resumeThread(firstThread.id, {
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
+
+const implementation = await resumedThread.run(`
+先ほどの計画に基づき summary.js を作成してください。
+MISE_CACHE_DIR=$PWD/.mise-cache node summary.js を実行し、JSONが出力されることを確認してください。
+`.trim());
+
+displayWorkspace(workspace);
 displayFinalResponse('計画', plan.finalResponse);
 displayItemSummary(plan.items);
-
-const implementation = await thread.run(`
-計画に基づき report.js を作成してください。
-満足度 [5,3,4,2,5] の平均、完了数3/5、難所 tools/MCP/guardrails、改善アクションを含むJSONを出力するスクリプトにしてください。
-`.trim());
-displayFinalResponse('実装', implementation.finalResponse);
+displayFinalResponse('resume後の実装', implementation.finalResponse);
 displayItemSummary(implementation.items);
 displayFileChanges(implementation.items);
-
-const verification = await thread.run(`
-node report.js を実行し、JSONが出力されることを確認してください。
-平均満足度が3.8であることも確認し、確認したコマンドと結果を回答に含めてください。
-`.trim());
-displayFinalResponse('検証', verification.finalResponse);
-displayItemSummary(verification.items);
-displayCommandExecutions(verification.items);
-displayThreadInfo(thread.id, verification.usage);
-console.log('\n=== report.js ===\n');
-console.log(await readFile(join(workspace, 'report.js'), 'utf8'));
+displayCommandExecutions(implementation.items);
+displayThreadInfo(resumedThread.id, implementation.usage);
+console.log('\n=== summary.js ===\n');
+console.log(await readFile(join(workspace, 'summary.js'), 'utf8'));

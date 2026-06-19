@@ -1,57 +1,51 @@
 /**
- * outputSchemaを使い、Codexのリポジトリ分析結果をプログラムで扱えるJSONとして受け取る例。
+ * Agents SDKの会話履歴・セッション管理を、Codex threadの連続turnで置き換える例。
  */
+
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayJson, parseJson } from './helpers.js';
+import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
 
-const LectureMappingSchema = {
-  type: 'object',
-  properties: {
-    lecture3Theme: { type: 'string' },
-    lecture4Theme: { type: 'string' },
-    matchingConcepts: {
-      type: 'array',
-      minItems: 4,
-      maxItems: 6,
-      items: {
-        type: 'object',
-        properties: {
-          lecture3Concept: { type: 'string' },
-          codexEquivalent: { type: 'string' },
-          exampleFile: { type: 'string' },
-          reason: { type: 'string' },
-        },
-        required: ['lecture3Concept', 'codexEquivalent', 'exampleFile', 'reason'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['lecture3Theme', 'lecture4Theme', 'matchingConcepts'],
-  additionalProperties: false,
-} as const;
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-thread-memory-'));
+await writeFile(
+  join(workspace, 'workshop.md'),
+  `
+# 90分ワークショップ
+
+- 前提: 受講者は第3回でAgents SDKのtoolsとMCPを触った
+- 目的: 第4回でCodex SDKの価値を理解する
+- 制約: 最初はAgents SDKとの対応関係から入りたい
+`.trim()
+);
 
 const codex = new Codex();
 const thread = codex.startThread({
-  workingDirectory: process.cwd(),
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
   sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'low',
 });
 
-const turn = await thread.run(
-  `
-src/k21_2026_lecture3/README.md と src/k21_2026_lecture4/README.md だけを読み、lecture4でCodex SDKに対応させる学習概念をJSONで整理してください。
-matchingConcepts は、第3回の概念と src/k21_2026_lecture4 の具体的なサンプルファイルを対応させてください。
-他のファイルは読まないでください。
+const first = await thread.run(`
+workshop.md を読み、第4回冒頭15分の説明計画を3点で作ってください。
 ファイルは変更しないでください。
-`.trim(),
-  { outputSchema: LectureMappingSchema }
-);
+`.trim());
 
-displayFinalResponse('JSON文字列', turn.finalResponse);
-displayItemSummary(turn.items);
-const parsed = parseJson<{ matchingConcepts: unknown[] }>(turn.finalResponse);
-displayJson('パース後の対応表', parsed.matchingConcepts);
-console.log('\nmatchingConcepts 件数:', parsed.matchingConcepts.length);
+const second = await thread.run(`
+追加制約です。最初の5分で「Codex SDKはAgents SDKの代替にもなる」と明確に言いたいです。
+先ほどの計画を、追加制約を反映して更新してください。
+ファイルは変更しないでください。
+`.trim());
+
+displayWorkspace(workspace);
+displayFinalResponse('1回目', first.finalResponse);
+displayItemSummary(first.items);
+displayFinalResponse('2回目', second.finalResponse);
+displayItemSummary(second.items);
+assertNoFileChanges([...first.items, ...second.items]);
+displayThreadInfo(thread.id, second.usage);

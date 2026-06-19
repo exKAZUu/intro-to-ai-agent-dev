@@ -1,33 +1,29 @@
 /**
- * Codexにバグ修正と検証コマンド実行を任せ、書く・試す・直す開発ループを体験する例。
+ * read-only sandboxでコードレビューだけを許可し、ファイル変更を防ぐ例。
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import {
-  displayCommandExecutions,
-  displayFileChanges,
-  displayFinalResponse,
-  displayItemSummary,
-  displayThreadInfo,
-  displayWorkspace,
-} from './helpers.js';
+import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-'));
-const scriptPath = join(workspace, 'survey.js');
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-readonly-review-'));
 await writeFile(
-  scriptPath,
+  join(workspace, 'report.js'),
   `
-const scores = [5, 3, 4, 2, 5];
-const average = scores.reduce((sum, score) => sum + score, 0);
-console.log("average=" + average);
+export function completionRate(completed, total) {
+  return completed / total;
+}
+
+export function formatRate(rate) {
+  return Math.round(rate) + "%";
+}
 `.trim()
 );
 await execFileAsync('git', ['init'], { cwd: workspace });
@@ -36,22 +32,18 @@ const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
-  sandboxMode: 'workspace-write',
+  sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'low',
 });
 
 const turn = await thread.run(`
-survey.js は平均満足度を出すつもりですが、今は合計を出してしまいます。
-バグを修正し、node survey.js を実行して average=3.8 になることを確認してください。
-修正理由、確認したコマンド、確認結果を最終回答にも含めてください。
+report.js をレビューし、実務でバグになりそうな点を最大3件で指摘してください。
+修正案は文章で提案するだけにし、ファイルは絶対に変更しないでください。
 `.trim());
 
 displayWorkspace(workspace);
-displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 修正後のsurvey.js ===\n');
-console.log(await readFile(scriptPath, 'utf8'));
+displayFinalResponse('レビュー結果', turn.finalResponse);
 displayItemSummary(turn.items);
-displayFileChanges(turn.items);
-displayCommandExecutions(turn.items);
+assertNoFileChanges(turn.items);
 displayThreadInfo(thread.id, turn.usage);

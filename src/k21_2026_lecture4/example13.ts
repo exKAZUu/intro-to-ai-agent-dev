@@ -1,63 +1,31 @@
 /**
- * resumeThreadを使い、保存されたCodex thread IDから会話を再開する例。
+ * webSearchModeで公式情報を確認し、ローカルコードベース文脈と組み合わせる例。
  */
-
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
+import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-resume-'));
-const memoPath = join(workspace, 'memo.md');
-await writeFile(
-  memoPath,
+const codex = new Codex();
+const thread = codex.startThread({
+  workingDirectory: process.cwd(),
+  sandboxMode: 'read-only',
+  approvalPolicy: 'never',
+  webSearchMode: 'cached',
+  modelReasoningEffort: 'low',
+});
+
+const turn = await thread.run(
   `
-# Lecture memo
-
-- 第3回: tools, MCP, guardrails
-- 第4回: Codex SDK
+src/k21_2026_lecture4/example01.ts と example06.ts を読み、Codex SDKの使い方を確認してください。
+さらにweb searchでCodex SDKまたはOpenAI公式ドキュメントの関連情報を確認し、授業で補足すべき注意点を3つ挙げてください。
+参照先はOpenAI公式ドキュメントまたはCodex SDKの公式情報に限定してください。
+ファイルは変更しないでください。
 `.trim()
 );
 
-const codex = new Codex();
-const firstThread = codex.startThread({
-  workingDirectory: workspace,
-  skipGitRepoCheck: true,
-  sandboxMode: 'read-only',
-  approvalPolicy: 'never',
-  modelReasoningEffort: 'low',
-});
-
-const firstTurn = await firstThread.run(`
-memo.md を読み、第3回から第4回へつなぐ説明方針を2点で整理してください。
-ファイルは変更しないでください。
-`.trim());
-
-if (!firstThread.id) {
-  throw new Error('Codex thread IDを取得できませんでした。');
-}
-
-const resumedThread = codex.resumeThread(firstThread.id, {
-  workingDirectory: workspace,
-  skipGitRepoCheck: true,
-  sandboxMode: 'read-only',
-  approvalPolicy: 'never',
-  modelReasoningEffort: 'low',
-});
-
-const secondTurn = await resumedThread.run(`
-先ほど整理した説明方針を踏まえて、Codex SDKのthreadを授業で説明するときの短い例えを1つ作ってください。
-ファイルは変更しないでください。
-`.trim());
-
-displayWorkspace(workspace);
-console.log('\n=== memo.md ===\n');
-console.log(await readFile(memoPath, 'utf8'));
-displayFinalResponse('1回目', firstTurn.finalResponse);
-displayItemSummary(firstTurn.items);
-displayFinalResponse('resume後', secondTurn.finalResponse);
-displayItemSummary(secondTurn.items);
-displayThreadInfo(resumedThread.id, secondTurn.usage);
+displayFinalResponse('調査結果', turn.finalResponse);
+displayItemSummary(turn.items);
+displayWebSearches(turn.items);
+assertNoFileChanges(turn.items);
+displayThreadInfo(thread.id, turn.usage);

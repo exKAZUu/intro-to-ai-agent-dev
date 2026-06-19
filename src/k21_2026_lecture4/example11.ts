@@ -1,113 +1,67 @@
 /**
- * Agents SDKの受付エージェントが、コードベース調査だけをCodex MCPへ委譲する例。
+ * 1つのCodex threadで、調査、計画、実装、検証を段階的に進める例。
  */
 
-import { Agent, MCPServerStdio, run } from '@openai/agents';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 
-process.env.OPENAI_API_KEY ||= '<ここにOpenAIのAPIキーを貼り付けてください>';
+import { Codex } from '@openai/codex-sdk';
 
-const mcpServer = new MCPServerStdio({
-  name: 'Codex MCP Server',
-  fullCommand: 'codex mcp-server',
-  clientSessionTimeoutSeconds: 180,
-  timeout: 180000,
+import {
+  displayCommandExecutions,
+  displayFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayThreadInfo,
+  displayWorkspace,
+} from './helpers.js';
+
+const execFileAsync = promisify(execFile);
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-staged-workflow-'));
+await writeFile(
+  join(workspace, 'README.md'),
+  `
+# Survey report tool
+
+Create a small script that reports average satisfaction and completion rate.
+`.trim()
+);
+await execFileAsync('git', ['init'], { cwd: workspace });
+
+const codex = new Codex();
+const thread = codex.startThread({
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
 });
-await mcpServer.connect();
 
-try {
-  const codexAgent = new Agent({
-    name: 'Codebase investigation agent',
-    handoffDescription: 'リポジトリのファイル調査やコード読解が必要な依頼を担当します。',
-    instructions: `
-コードベース調査は Codex MCP Server の codex ツールで行ってください。
-Codexには approval-policy=never, sandbox=read-only, cwd=${process.cwd()} を指定してください。
-調査が終わったら、追加確認を求めずに最終回答を返してください。
-`.trim(),
-    model: 'gpt-5-mini',
-    mcpServers: [mcpServer],
-  });
+displayWorkspace(workspace);
 
-  const triageAgent = Agent.create({
-    name: 'Lecture4 triage agent',
-    instructions: '一般的な講義相談は自分で答え、リポジトリ調査が必要な依頼は Codebase investigation agent に委譲してください。',
-    model: 'gpt-5-mini',
-    handoffs: [codexAgent],
-  });
+const investigation = await thread.run('README.md を読み、必要な実装作業を2点で整理してください。');
+displayFinalResponse('調査', investigation.finalResponse);
+displayItemSummary(investigation.items);
 
-  const response = await run(
-    triageAgent,
-    `
-k21_2026_lecture3のexample07.tsとexample08.tsがどう接続しているか、リポジトリを調べて説明してください。
-リポジトリ調査は Codebase investigation agent に委譲し、Codex MCP Server の codex ツールを使ってください。
-`.trim(),
-    { maxTurns: 14 }
-  );
-  console.log('\n=== Handoff結果 ===\n');
-  console.log(response.finalOutput);
-  displayItemTypeSummary(response.newItems);
-  displayHandoffsAndMcpCalls(response.newItems);
-} finally {
-  await mcpServer.close();
-}
+const implementation = await thread.run(`
+調査結果に基づき report.js を作成してください。
+満足度 [5,3,4,2,5] の平均、完了数3/5、完了率をJSONで出力するスクリプトにしてください。
+実行確認は次のturnで行うので、このturnでは report.js の作成だけをしてください。
+`.trim());
+displayFinalResponse('実装', implementation.finalResponse);
+displayItemSummary(implementation.items);
+displayFileChanges(implementation.items);
 
-function displayItemTypeSummary(items: { toJSON(): unknown }[]) {
-  console.log('\n=== Agents SDK item summary ===\n');
-  console.dir(
-    items.map((item) => {
-      const itemJson = item.toJSON() as { rawItem?: { name?: string; serverLabel?: string; type?: string }; type?: string };
-      return {
-        type: itemJson.type,
-        rawType: itemJson.rawItem?.type,
-        name: itemJson.rawItem?.name,
-        server: itemJson.rawItem?.serverLabel,
-      };
-    }),
-    { depth: null }
-  );
-}
-
-function displayHandoffsAndMcpCalls(items: { toJSON(): unknown }[]) {
-  type Observation =
-    | { from: string | undefined; kind: 'handoff'; to: string | undefined }
-    | { itemType: string | undefined; kind: 'codex_mcp_tool'; rawType: string | undefined; tool: string | undefined }
-    | { itemType: string | undefined; kind: 'mcp_item'; rawType: string | undefined; server: string | undefined; tool: string | undefined };
-
-  console.log('\n=== Handoff / MCP の観察ログ ===\n');
-  console.dir(
-    items.flatMap<Observation>((item) => {
-      const itemJson = item.toJSON() as {
-        rawItem?: { name?: string; serverLabel?: string; type?: string };
-        sourceAgent?: { name?: string };
-        targetAgent?: { name?: string };
-        type?: string;
-      };
-      if (itemJson.sourceAgent && itemJson.targetAgent && itemJson.rawItem?.name?.startsWith('transfer_to_')) {
-        return [{ kind: 'handoff', from: itemJson.sourceAgent.name, to: itemJson.targetAgent.name }];
-      }
-      if (itemJson.rawItem?.name === 'codex') {
-        return [
-          {
-            kind: 'codex_mcp_tool',
-            itemType: itemJson.type,
-            rawType: itemJson.rawItem.type,
-            tool: itemJson.rawItem.name,
-          },
-        ];
-      }
-      const itemType = itemJson.type ?? itemJson.rawItem?.type;
-      if (itemType?.includes('mcp') || itemJson.rawItem?.serverLabel) {
-        return [
-          {
-            kind: 'mcp_item',
-            itemType: itemJson.type,
-            rawType: itemJson.rawItem?.type,
-            server: itemJson.rawItem?.serverLabel,
-            tool: itemJson.rawItem?.name,
-          },
-        ];
-      }
-      return [];
-    }),
-    { depth: null }
-  );
-}
+const verification = await thread.run(`
+MISE_CACHE_DIR=$PWD/.mise-cache node report.js を実行し、JSONが出力されることを確認してください。
+平均満足度が3.8であることも確認し、確認したコマンドと結果を回答に含めてください。
+`.trim());
+displayFinalResponse('検証', verification.finalResponse);
+displayItemSummary(verification.items);
+displayCommandExecutions(verification.items);
+displayThreadInfo(thread.id, verification.usage);
+console.log('\n=== report.js ===\n');
+console.log(await readFile(join(workspace, 'report.js'), 'utf8'));

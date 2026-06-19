@@ -1,81 +1,74 @@
 # k21_2026_lecture4
 
-ワークショップのプログラム例です。`src/lecture1` の LLM / Responses API 入門、`src/k21_2026_lecture2` の会話履歴・instructions・推論設定、第3回の Function Calling / Agents SDK / Hosted tools / Handoff / Guardrails / Tracing / MCP の流れを引き継ぎ、Codex SDK を「コードベースを読み、作業し、検証する開発エージェントをアプリケーションから呼び出すためのSDK」として扱います。
+ワークショップのプログラム例です。`src/lecture1` の LLM / Responses API 入門、`src/k21_2026_lecture2` の会話履歴・instructions・推論設定、`src/k21_2026_lecture3` の Function Calling / Agents SDK / Hosted tools / Handoff / Guardrails / Tracing / MCP の流れを引き継ぎ、Codex SDK を扱います。
 
-中心テーマは、第3回で使った学習サイト利用ログ、演習アンケート、講義改善計画を、リポジトリ調査と実装作業に接続することです。前半では read-only の Codex thread でリポジトリ調査、会話状態、構造化出力、ストリーミングを確認します。後半では sandbox、ファイル編集、コマンド実行、レビュー担当の分離、Agents SDK からの Codex MCP 呼び出し、調査から検証までの一連の開発ワークフローに進みます。
+第4回の流れは、最初に「Agents SDK で作っていたエージェント的な処理を Codex SDK で置き換えられる」ことを確認し、その後で「Codex SDK でないと実用的に作りにくい、コードベースを読み、ファイルを編集し、コマンドで検証し、レビューし、再開できる開発エージェント」へ進む構成です。
 
 ## 問題構成
 
-1. Codex SDK の最小単位を確認する
-   - `example01.ts`: `Codex`、`startThread()`、`run()`、`sandboxMode: 'read-only'` の最小構成でリポジトリを調査します。
-   - `example02.ts`: 同じ thread に連続で依頼し、講義1から第3回までの調査結果を次の設計判断に使います。
-2. Codex の出力をプログラムから扱う
-   - `example03.ts`: `outputSchema` で、第3回と第4回の対応関係を JSON として受け取ります。
-   - `example04.ts`: `runStreamed()` で、途中イベント、item 種別、usage を観察します。
-3. sandbox とレビュー境界を扱う
-   - `example05.ts`: read-only sandbox でレビューだけを許可し、`file_change` が発生しないことを確認します。
-4. 第3回の Hosted tools 相当を Codex SDK で再構成する
-   - `example06.ts`: 一時ワークスペースでファイル作成、コマンド実行、構造化出力を組み合わせ、アンケート分析を再現します。
-   - `example07.ts`: `webSearchMode` で外部検索を有効にし、手元のアンケート結果を公式情報で補強します。
-5. ファイル編集と検証の開発ループに進む
-   - `example08.ts`: `workspace-write` で講義計画ファイルを編集し、`file_change` を確認します。
-   - `example09.ts`: バグ修正と検証コマンド実行を Codex に任せ、変更と実行結果を観察します。
-6. 複数 thread と役割分担を扱う
-   - `example10.ts`: 実装担当 thread と read-only レビュー担当 thread を分けます。
-7. Agents SDK と Codex MCP を接続する
-   - `example11.ts`: Agents SDK の受付エージェントが、コードベース調査だけを Codex MCP Server に委譲します。
-8. 総合ワークフローとしてまとめる
-   - `example12.ts`: 1つの Codex thread で調査、計画、実装、検証を段階的に進めます。
-9. 長い開発作業の再開を扱う
-   - `example13.ts`: `resumeThread()` で保存済み thread ID から会話を再開します。
+1. Agents SDK 的なプログラムを Codex SDK で置き換える
+   - `example01.ts`: `run()` で、受付エージェント風の単発応答を作ります。
+   - `example02.ts`: `outputSchema` で、分類・優先度付けの構造化出力を受け取ります。
+   - `example03.ts`: 同じ thread に連続依頼し、会話状態を使った計画更新を行います。
+   - `example04.ts`: `runStreamed()` で、進行中イベントを UI ログのように観察します。
+2. Agents SDK の tool / code interpreter 的な処理を Codex SDK で置き換える
+   - `example05.ts`: ファイル読み取りツールを自作せず、read-only workspace のファイルを根拠に回答します。
+   - `example06.ts`: 一時ワークスペースに CSV と分析スクリプトを作り、実行結果を JSON として受け取ります。
+3. Codex SDK でしか作りにくい開発ワークフローに進む
+   - `example07.ts`: `workspace-write` でファイルを編集し、`file_change` を確認します。
+   - `example08.ts`: バグ修正と検証コマンド実行を1つの turn で行います。
+   - `example09.ts`: read-only sandbox でコードレビューだけを許可し、変更がないことを確認します。
+   - `example10.ts`: 実装担当 thread とレビュー担当 thread を分けます。
+   - `example11.ts`: 1つの thread で調査、計画、実装、検証を段階的に進めます。
+   - `example12.ts`: `resumeThread()` で中断した開発作業を再開します。
+   - `example13.ts`: `webSearchMode` で外部公式情報とローカルコードベース文脈を組み合わせます。
 
 ## プログラム例
 
 - `example01.ts`
-  - 概要: Codex SDK の最小構成で、現在のリポジトリを read-only に調査します。
-  - 学習のねらい: Responses API の単発応答や Agents SDK の `run()` と違い、Codex SDK では作業ディレクトリ、sandbox、approval policy を明示してコードベース文脈を読むエージェントを起動できることを確認します。
+  - 概要: 一時ワークスペースの `request.md` を読み、受付エージェント風に短い回答を返します。
+  - 学習のねらい: Agents SDK の `Agent` + `run()` で作る単発エージェントは、Codex SDK の `startThread()` + `run()` でも表現できることを確認します。
 - `example02.ts`
-  - 概要: 同じ Codex thread に、講義1から第3回までの整理と第4回への対応付けを連続で依頼します。
-  - 学習のねらい: `previous_response_id` を意識した第2回の会話履歴、Agents SDK の実行履歴と対応させながら、Codex thread が開発作業の文脈を保持する単位であることを確認します。
+  - 概要: `requests.json` の問い合わせを、カテゴリ、優先度、担当、返信文に分類して JSON で受け取ります。
+  - 学習のねらい: Agents SDK の structured output と同じ発想を、Codex SDK の `outputSchema` で扱えることを学びます。
 - `example03.ts`
-  - 概要: `outputSchema` で、lecture3 の概念と Codex SDK の概念の対応表を JSON として受け取ります。
-  - 学習のねらい: 第3回の Structured output と同様に、自然文ではなく後続処理しやすい型付きデータとして Codex のリポジトリ分析結果を扱えることを学びます。
+  - 概要: 同じ Codex thread で、最初の計画に追加制約を与えて計画を更新します。
+  - 学習のねらい: Agents SDK の会話履歴やセッション管理に相当する文脈保持を、Codex thread が担えることを確認します。
 - `example04.ts`
-  - 概要: `runStreamed()` で、item の開始、更新、完了、turn 完了を逐次表示します。
-  - 学習のねらい: 最終回答だけを待つのではなく、reasoning、コマンド実行、ファイル変更、エラーなどのイベントを UI やログに接続できることを確認します。
+  - 概要: `runStreamed()` のイベントを表示し、最終回答までの進行を観察します。
+  - 学習のねらい: Agents SDK の streaming と同じように、UI やログに途中経過を流せることを確認します。
 - `example05.ts`
-  - 概要: read-only sandbox で第3回後半のサンプルをレビューし、修正は提案に限定します。
-  - 学習のねらい: コードレビューや調査では read-only sandbox を使うと、モデルが変更したそうな場面でも作業権限を分離でき、`file_change` の有無で境界を観察できることを学びます。
+  - 概要: FAQ と講義ノートのファイルを読み、根拠ファイル名付きで回答します。
+  - 学習のねらい: Agents SDK なら file search / read file tool を自作したくなる処理を、Codex SDK では workspace の読み取り能力として扱えることを学びます。
 - `example06.ts`
-  - 概要: 一時ワークスペースに `survey.csv` を置き、Codex に分析スクリプト作成、実行、JSON 出力まで任せます。
-  - 学習のねらい: 第3回の Hosted code interpreter と Structured output に対応させ、Codex ではファイルを作り、コマンドを実行し、その結果を `outputSchema` に沿って返せることを確認します。
+  - 概要: `survey.csv` から分析スクリプトを作成・実行し、スクリプトが出力した JSON を確認します。
+  - 学習のねらい: code interpreter 的な表形式データ処理を、ファイル作成とコマンド実行の組み合わせで再現します。
 - `example07.ts`
-  - 概要: `webSearchMode: 'cached'` で、アンケート結果に基づく改善案を OpenAI 公式情報で補強します。
-  - 学習のねらい: 第3回の web search と同様に、リポジトリ文脈やローカル分析結果だけでは足りない最新情報を検索で補えることを確認します。
+  - 概要: `lecture_plan.md` を編集し、変更後のファイル内容と `file_change` item を表示します。
+  - 学習のねらい: read-only の問い合わせから、権限付きの実装作業へ進む境界を確認します。
 - `example08.ts`
-  - 概要: `workspace-write` の一時ワークスペースで `lecture_plan.md` を編集します。
-  - 学習のねらい: read-only 調査から一歩進め、Codex SDK でファイル変更を許可したときに、変更後のファイル内容と `file_change` item を照合できることを学びます。
+  - 概要: 壊れた `survey.js` を修正し、`node survey.js` で `average=3.8` を検証します。
+  - 学習のねらい: コードを読み、直し、コマンドで確認する Codex SDK の中核ループを体験します。
 - `example09.ts`
-  - 概要: 平均満足度計算のバグを修正し、`node survey.js` で検証します。
-  - 学習のねらい: Codex SDK の本領である「コードを読む、直す、コマンドで確認する」ループを、小さな例で観察します。
+  - 概要: 小さなプロジェクトを read-only でレビューし、修正提案だけを受け取ります。
+  - 学習のねらい: レビューでは書き込み権限を渡さないという、アプリケーション側の安全境界を作れることを確認します。
 - `example10.ts`
-  - 概要: 実装担当 thread とレビュー担当 thread を分け、同じ一時ワークスペースを別権限で扱います。
-  - 学習のねらい: Handoff のように役割を分ける考え方を Codex thread に移し、実装は `workspace-write`、レビューは `read-only` という境界を作れることを確認します。
+  - 概要: 実装担当 thread がコードを書き、レビュー担当 thread が read-only で検査します。
+  - 学習のねらい: Agents SDK の Handoff とは別に、Codex SDK の複数 thread と sandbox 権限で役割分担できることを学びます。
 - `example11.ts`
-  - 概要: Agents SDK の受付エージェントが、Codex MCP Server の `codex` ツールへコードベース調査を委譲します。
-  - 学習のねらい: 第3回の Handoff と MCP を発展させ、通常の会話エージェントから Codex のコードベース調査能力を専門ツールとして呼び出せることを学びます。
+  - 概要: 1つの thread で調査、計画、実装、検証を段階的に進めます。
+  - 学習のねらい: 独立したツール呼び出しではなく、開発文脈を持ち続けるエージェントとして Codex を使います。
 - `example12.ts`
-  - 概要: 1つの Codex thread で、調査、計画、実装、検証を段階的に進めます。
-  - 学習のねらい: 単発のツール呼び出しではなく、開発エージェントとして文脈を保持しながら作業を進める総合ワークフローを確認します。
+  - 概要: 計画作成後に thread ID を使って再開し、同じ文脈で実装と検証を続けます。
+  - 学習のねらい: 長い開発作業や人間の確認を挟む作業を、プロセスをまたいで再開できることを確認します。
 - `example13.ts`
-  - 概要: 1回目の Codex thread ID を保存し、`resumeThread()` で同じ会話を再開します。
-  - 学習のねらい: Codex thread は `~/.codex/sessions` に保存されるため、長い調査や実装をアプリケーション側で中断・再開できることを確認します。
+  - 概要: ローカルの Codex SDK 使用コードを読み、web search で公式情報を確認して改善案を出します。
+  - 学習のねらい: 外部情報検索だけでなく、ローカルコードベース文脈と組み合わせるところに Codex SDK の価値があることを確認します。
 
 ## 補足
 
 - Codex SDK はローカルの `codex` CLI を起動し、JSONL イベントでやり取りします。
 - `codex` CLI が使える状態で実行してください。API キーまたは Codex のログイン状態は、ローカル環境の設定に従います。
-- `example06.ts`、`example08.ts`、`example09.ts`、`example10.ts`、`example12.ts`、`example13.ts` は一時ワークスペースを作成します。
-- `workspace-write` の例は一時ディレクトリだけを書き換えるようにしています。現在のリポジトリ本体を書き換える例ではありません。
-- `example07.ts` は `webSearchMode` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。
-- `example11.ts` は `codex mcp-server` を利用します。
+- すべての書き込み例は一時ワークスペースを使い、現在のリポジトリ本体を書き換えません。
+- `workspace-write` の例では、必要に応じて `skipGitRepoCheck: true` を使います。
+- `example13.ts` は `webSearchMode` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。
