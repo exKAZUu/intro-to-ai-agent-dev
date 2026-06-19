@@ -1,5 +1,5 @@
 /**
- * Agents SDKのstructured output相当を、Codex SDKのoutputSchemaで置き換える例。
+ * 01の自然文回答から一歩進め、アプリ側の分岐に使うstructured outputをCodex SDKで受け取る例。
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -60,15 +60,39 @@ const turn = await thread.run(
   `
 requests.json を読み、各相談を講義運営で扱いやすいJSONに分類してください。
 owner は teacher, ta, curriculum のいずれかにしてください。
+これは受講者へ直接返す文章ではなく、アプリ側が担当者への振り分けや優先対応に使うデータです。
 ファイルは変更しないでください。
 `.trim(),
   { outputSchema: TriageSchema }
 );
 
-const parsed = parseJson<{ requests: unknown[] }>(turn.finalResponse);
+type TriageResult = {
+  requests: {
+    category: 'concept' | 'safety' | 'analysis';
+    id: string;
+    owner: string;
+    priority: 'high' | 'medium' | 'low';
+    reply: string;
+  }[];
+};
+
+const parsed = parseJson<TriageResult>(turn.finalResponse);
 displayWorkspace(workspace);
 displayFinalResponse('JSON文字列', turn.finalResponse);
 displayJson('パース後の分類結果', parsed.requests);
+displayJson('アプリ側で使う振り分け情報', {
+  highPriorityRequestIds: parsed.requests.filter((request) => request.priority === 'high').map((request) => request.id),
+  ownerQueues: groupByOwner(parsed.requests),
+});
 displayItemSummary(turn.items);
 assertNoFileChanges(turn.items);
 displayThreadInfo(thread.id, turn.usage);
+
+function groupByOwner(requests: TriageResult['requests']) {
+  return requests.reduce<Record<string, string[]>>((groups, request) => {
+    const ownerRequests = groups[request.owner] ?? [];
+    ownerRequests.push(request.id);
+    groups[request.owner] = ownerRequests;
+    return groups;
+  }, {});
+}

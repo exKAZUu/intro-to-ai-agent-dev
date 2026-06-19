@@ -29,8 +29,8 @@
   - 概要: 一時ワークスペースの `request.md` を読み、受付エージェント風に短い回答を返しながら、Agents SDK と Codex SDK の使い分けを整理します。
   - 学習のねらい: Agents SDK の `Agent` + `run()` で作る単発エージェントは Codex SDK でも表現できますが、アプリ内エージェントには Agents SDK、コードベースを読む開発作業には Codex SDK が向くことを確認します。
 - `example02.ts`
-  - 概要: `requests.json` の問い合わせを、カテゴリ、優先度、担当、返信文に分類して JSON で受け取ります。
-  - 学習のねらい: Agents SDK の structured output と同じ発想を、Codex SDK の `outputSchema` で扱えることを学びます。
+  - 概要: `requests.json` の問い合わせを、カテゴリ、優先度、担当、返信文に分類し、アプリ側の振り分けに使える JSON として受け取ります。
+  - 学習のねらい: 01のような「人に返す自然文」ではなく、後続処理が参照する機械可読データを Codex SDK の `outputSchema` で受け取れることを確認します。
 - `example03.ts`
   - 概要: 同じ Codex thread で、最初の計画に追加制約を与えて計画を更新します。
   - 学習のねらい: Agents SDK の会話履歴やセッション管理に相当する文脈保持を、Codex thread が担えることを確認します。
