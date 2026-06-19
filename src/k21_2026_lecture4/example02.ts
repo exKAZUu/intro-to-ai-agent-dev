@@ -12,16 +12,19 @@ import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayJ
 
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-triage-'));
 await writeFile(
-  join(workspace, 'requests.json'),
-  JSON.stringify(
-    [
-      { id: 'r1', text: 'toolsとMCPの違いを演習前にもう一度説明してほしい' },
-      { id: 'r2', text: 'Codex SDKでファイルを編集するときの安全な権限設定を知りたい' },
-      { id: 'r3', text: '第3回のアンケート集計を次回改善案につなげたい' },
-    ],
-    null,
-    2
-  )
+  join(workspace, 'requests.md'),
+  `
+# 講義後に届いた相談メモ
+
+山田さん:
+toolsとMCPの違いを演習前にもう一度説明してほしい。どちらも外部機能を呼ぶものに見えて混乱している。
+
+佐藤さん:
+Codex SDKでファイルを編集するとき、どのsandbox設定なら安全なのかを知りたい。演習で自分のリポジトリを壊さないか不安。
+
+鈴木さん:
+第3回のアンケート集計を、次回の改善案につなげたい。満足度や難しかった題材から、どの演習を増やすべきか判断したい。
+`.trim()
 );
 
 const TriageSchema = {
@@ -58,9 +61,10 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-requests.json を読み、各相談を講義運営で扱いやすいJSONに分類してください。
+requests.md を読み、各相談を講義運営で扱いやすいJSONに分類してください。
+id は上から順に r1, r2, r3 としてください。
 owner は teacher, ta, curriculum のいずれかにしてください。
-これは受講者へ直接返す文章ではなく、アプリ側が担当者への振り分けや優先対応に使うデータです。
+入力は自然文メモですが、これは受講者へ直接返す文章ではなく、アプリ側が担当者への振り分けや優先対応に使うデータです。
 ファイルは変更しないでください。
 `.trim(),
   { outputSchema: TriageSchema }
