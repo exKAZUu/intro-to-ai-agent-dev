@@ -1,5 +1,5 @@
 /**
- * 01の自然文回答から一歩進め、アプリ側の分岐に使うstructured outputをCodex SDKで受け取る例。
+ * 非構造な開発依頼を、後続のCodex作業に渡すstructured outputへ変換する例。
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -12,41 +12,35 @@ import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayJ
 
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-triage-'));
 await writeFile(
-  join(workspace, 'requests.md'),
+  join(workspace, 'bug-report.md'),
   `
-# 講義後に届いた相談メモ
+# 受講者から届いた開発相談
 
-山田さん:
-toolsとMCPの違いを演習前にもう一度説明してほしい。どちらも外部機能を呼ぶものに見えて混乱している。
+演習用のアンケート集計スクリプトを動かすと、満足度の平均が 19 と表示されます。
+入力データは 5, 3, 4, 2, 5 なので、期待値は 3.8 のはずです。
 
-佐藤さん:
-Codex SDKでファイルを編集するとき、どのsandbox設定なら安全なのかを知りたい。演習で自分のリポジトリを壊さないか不安。
-
-鈴木さん:
-第3回のアンケート集計を、次回の改善案につなげたい。満足度や難しかった題材から、どの演習を増やすべきか判断したい。
+講義では、Codexにどのファイルを読ませ、どのコマンドで検証させるべきかをUIに表示したいです。
+いきなりファイルを書き換える前に、調査対象、疑わしい原因、実行すべき検証コマンド、書き込み権限が必要かを機械的に扱える形にしてください。
 `.trim()
 );
 
-const TriageSchema = {
+const RepairPlanSchema = {
   type: 'object',
   properties: {
-    requests: {
+    summary: { type: 'string' },
+    filesToInspect: {
       type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' },
-          category: { type: 'string', enum: ['concept', 'safety', 'analysis'] },
-          priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-          owner: { type: 'string' },
-          reply: { type: 'string' },
-        },
-        required: ['id', 'category', 'priority', 'owner', 'reply'],
-        additionalProperties: false,
-      },
+      items: { type: 'string' },
     },
+    suspectedCause: { type: 'string' },
+    commandsToRun: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    requiresWriteAccess: { type: 'boolean' },
+    nextStep: { type: 'string', enum: ['inspect', 'edit', 'ask-human'] },
   },
-  required: ['requests'],
+  required: ['summary', 'filesToInspect', 'suspectedCause', 'commandsToRun', 'requiresWriteAccess', 'nextStep'],
   additionalProperties: false,
 } as const;
 
@@ -61,42 +55,31 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-requests.md を読み、各相談を講義運営で扱いやすいJSONに分類してください。
-id は上から順に r1, r2, r3 としてください。
-owner は teacher, ta, curriculum のいずれかにしてください。
-入力は自然文メモですが、これは受講者へ直接返す文章ではなく、アプリ側が担当者への振り分けや優先対応に使うデータです。
-ファイルは変更しないでください。
+bug-report.md を読み、次のCodex turnを制御するための修正計画JSONにしてください。
+commandsToRun には、受講者が見ても分かる素のコマンドだけを入れてください。
+まだファイルは変更しないでください。
 `.trim(),
-  { outputSchema: TriageSchema }
+  { outputSchema: RepairPlanSchema }
 );
 
-type TriageResult = {
-  requests: {
-    category: 'concept' | 'safety' | 'analysis';
-    id: string;
-    owner: string;
-    priority: 'high' | 'medium' | 'low';
-    reply: string;
-  }[];
+type RepairPlan = {
+  commandsToRun: string[];
+  filesToInspect: string[];
+  nextStep: 'inspect' | 'edit' | 'ask-human';
+  requiresWriteAccess: boolean;
+  summary: string;
+  suspectedCause: string;
 };
 
-const parsed = parseJson<TriageResult>(turn.finalResponse);
+const parsed = parseJson<RepairPlan>(turn.finalResponse);
 displayWorkspace(workspace);
 displayFinalResponse('JSON文字列', turn.finalResponse);
-displayJson('パース後の分類結果', parsed.requests);
-displayJson('アプリ側で使う振り分け情報', {
-  highPriorityRequestIds: parsed.requests.filter((request) => request.priority === 'high').map((request) => request.id),
-  ownerQueues: groupByOwner(parsed.requests),
+displayJson('パース後の修正計画', parsed);
+displayJson('アプリ側で次のturnに渡す制御情報', {
+  nextSandboxMode: parsed.requiresWriteAccess ? 'workspace-write' : 'read-only',
+  nextStep: parsed.nextStep,
+  commandsToRun: parsed.commandsToRun,
 });
 displayItemSummary(turn.items);
 assertNoFileChanges(turn.items);
 displayThreadInfo(thread.id, turn.usage);
-
-function groupByOwner(requests: TriageResult['requests']) {
-  return requests.reduce<Record<string, string[]>>((groups, request) => {
-    const ownerRequests = groups[request.owner] ?? [];
-    ownerRequests.push(request.id);
-    groups[request.owner] = ownerRequests;
-    return groups;
-  }, {});
-}

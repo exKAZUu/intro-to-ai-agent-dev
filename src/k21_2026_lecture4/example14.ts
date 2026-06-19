@@ -3,23 +3,25 @@
  */
 
 import { Agent, run, type Usage as AgentsUsage } from '@openai/agents';
-import type { ThreadOptions, Usage as CodexUsage } from '@openai/codex-sdk';
+import { Codex, type ThreadOptions, type Usage as CodexUsage } from '@openai/codex-sdk';
 
-import { createCodex, displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace } from './helpers.js';
+import { displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace } from './helpers.js';
 
 const agentsModel = process.env.AGENTS_COMPARE_MODEL ?? 'gpt-5.4-nano';
 const codexModel = process.env.CODEX_COMPARE_MODEL;
 const workspace = process.cwd();
 
 const task = `
-次の架空の授業アンケート結果だけを根拠に、次回のAIエージェント開発講座で優先して扱うべき改善点を3つ挙げてください。
+あなたはSaaSのオンコール担当です。次のインシデント引き継ぎメモだけを根拠に、朝会で共有する優先対応を3つに絞ってください。
 この依頼は本文だけで完結します。ファイルやコマンドは使わず、回答は日本語で5文以内にしてください。
 
-- 参加者数: 18
-- 平均満足度: 4.1 / 5
-- 難しかった題材: MCP 8件、Handoff 5件、Guardrails 3件、Tracing 2件
-- もっと見たい内容: 実コードのデバッグ 9件、SDKの使い分け 6件、料金とトークン使用量 5件
-- 自由記述: 「同じタスクでもSDKによって裏側の動きが違うことを数字で見たい」
+- 対象サービス: B2B向け請求書レビューAPI
+- 直近30分のエラー率: 通常0.2%前後に対して、特定テナント群で7.8%
+- 影響: 有料顧客12社の夜間バッチが失敗し、うち3社は月末締め処理中
+- 監視: p95 latencyは180msから2.4sへ悪化、DB CPUは通常40%から88%へ上昇
+- 直近変更: 2時間前にPDF解析ジョブの並列数を4から16へ変更
+- 暫定対応: ジョブキューを一時停止するとエラー率は0.6%まで低下したが、処理遅延が増える
+- 制約: 30分以内に顧客影響を下げ、恒久対応は日中に設計する
 `.trim();
 
 const agentsResult = await run(createAgentsSdkAgent(), task, { maxTurns: 1 });
@@ -30,7 +32,7 @@ const codexThreadOptions: ThreadOptions = {
   sandboxMode: 'read-only',
   workingDirectory: workspace,
 };
-const codexThread = createCodex().startThread(codexThreadOptions);
+const codexThread = new Codex().startThread(codexThreadOptions);
 const codexResult = await codexThread.run(task);
 
 displayWorkspace(workspace);

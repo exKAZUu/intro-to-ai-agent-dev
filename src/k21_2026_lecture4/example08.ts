@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  createCodexEnv,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -21,18 +22,37 @@ import {
 
 const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-verify-'));
-const scriptPath = join(workspace, 'survey.js');
+const scriptPath = join(workspace, 'discount.js');
+await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
 await writeFile(
   scriptPath,
   `
-const scores = [5, 3, 4, 2, 5];
-const average = scores.reduce((sum, score) => sum + score, 0);
-console.log("average=" + average);
+export function applyDiscount(price, percent) {
+  return price * percent;
+}
+`.trim()
+);
+await writeFile(
+  join(workspace, 'discount.test.js'),
+  `
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { applyDiscount } from './discount.js';
+
+test('applies a percentage discount', () => {
+  assert.equal(applyDiscount(1000, 20), 800);
+});
+
+test('rejects invalid percentages', () => {
+  assert.throws(() => applyDiscount(1000, -1), /percent/);
+  assert.throws(() => applyDiscount(1000, 100), /percent/);
+});
 `.trim()
 );
 await execFileAsync('git', ['init'], { cwd: workspace });
 
-const codex = new Codex();
+const codex = new Codex({ env: createCodexEnv(workspace) });
 const thread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
@@ -42,14 +62,15 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-survey.js は平均満足度を出すつもりですが、今は合計を出してしまいます。
-バグを修正し、MISE_CACHE_DIR=$PWD/.mise-cache node survey.js を実行して average=3.8 になることを確認してください。
+discount.js には割引後価格を計算するバグがあります。
+node --test discount.test.js を実行して失敗を確認し、discount.js を修正してください。
+修正後に同じテストコマンドを再実行し、すべて通ることを確認してください。
 修正理由、確認したコマンド、確認結果を最終回答にも含めてください。
 `.trim());
 
 displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 修正後のsurvey.js ===\n');
+console.log('\n=== 修正後のdiscount.js ===\n');
 console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);

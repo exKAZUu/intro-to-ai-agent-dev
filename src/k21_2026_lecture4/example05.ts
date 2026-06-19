@@ -2,47 +2,23 @@
  * Agents SDKで自作しがちなファイル読み取りtoolを、Codex SDKのworkspace読み取りで置き換える例。
  */
 
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-
 import { Codex } from '@openai/codex-sdk';
 
 import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-file-tool-'));
-await mkdir(join(workspace, 'docs'));
-await writeFile(
-  join(workspace, 'docs', 'faq.md'),
-  `
-# FAQ
-
-Q. Agents SDKとCodex SDKの違いは？
-A. Agents SDKはアプリ内のエージェント実行を組み立てるSDKで、Codex SDKはコードベースを読んで作業する開発エージェントを呼び出すSDKです。
-`.trim()
-);
-await writeFile(
-  join(workspace, 'docs', 'lecture4.md'),
-  `
-# Lecture4
-
-最初はCodex SDKをAgents SDKの代替として見せる。
-後半はファイル編集、コマンド実行、レビュー、resumeThreadを扱う。
-`.trim()
-);
-
+const workspace = process.cwd();
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: workspace,
-  skipGitRepoCheck: true,
   sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'low',
 });
 
 const turn = await thread.run(`
-docs 配下を読み、受講者に「第4回でCodex SDKを学ぶ理由」を説明してください。
-回答には根拠にしたファイル名を含めてください。
+src/k21_2026_lecture3/README.md と src/k21_2026_lecture4/README.md を読み、
+第3回から第4回へ何が発展しているかを、根拠ファイル名付きで説明してください。
+単なる社内資料QAではなく、コードベース内の複数教材ファイルを読む開発支援として答えてください。
 ファイルは変更しないでください。
 `.trim());
 

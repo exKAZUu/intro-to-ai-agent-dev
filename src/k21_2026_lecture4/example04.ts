@@ -2,38 +2,22 @@
  * Agents SDKのstreaming相当を、Codex SDKのrunStreamed()で置き換える例。
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-
-import { Codex } from '@openai/codex-sdk';
-import type { ThreadEvent } from '@openai/codex-sdk';
+import { Codex, type ThreadEvent } from '@openai/codex-sdk';
 
 import { displayEvent, displayFinalResponse, displayWorkspace } from './helpers.js';
 
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-streaming-'));
-await writeFile(
-  join(workspace, 'notes.md'),
-  `
-# Codex SDK メモ
-
-- startThreadで会話を始める
-- runでturnを実行する
-- runStreamedで途中イベントを観察する
-`.trim()
-);
-
+const workspace = process.cwd();
 const codex = new Codex();
 const thread = codex.startThread({
   workingDirectory: workspace,
-  skipGitRepoCheck: true,
   sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'low',
 });
 
 const { events } = await thread.runStreamed(`
-notes.md を読み、Codex SDKのstreamingを授業でどう見せるべきかを1段落で説明してください。
+src/k21_2026_lecture3/example08.ts と src/k21_2026_lecture4/example06.ts を読み、
+Hosted code interpreter と Codex SDK の違いを、根拠ファイル名付きで3点に整理してください。
 ファイルは変更しないでください。
 `.trim());
 

@@ -1,6 +1,14 @@
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { ThreadEvent, ThreadItem, Usage } from '@openai/codex-sdk';
 
 type ThreadItemType = ThreadItem['type'];
+
+export function createCodexEnv(workspace?: string) {
+  const miseCacheDir = workspace ? createMiseCacheDir(workspace) : undefined;
+  return miseCacheDir ? { ...getStringEnv(), MISE_CACHE_DIR: miseCacheDir } : undefined;
+}
 
 export function displayFinalResponse(label: string, finalResponse: string) {
   console.log(`\n=== ${label} ===\n`);
@@ -148,4 +156,25 @@ function summarizeItems(items: ThreadItem[]) {
 function previewText(text: string) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+}
+
+function getStringEnv() {
+  return Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+}
+
+function createMiseCacheDir(workspace: string) {
+  const gitDir = join(workspace, '.git');
+  if (!existsSync(gitDir)) return undefined;
+
+  const cacheDir = join(workspace, '.mise-cache');
+  mkdirSync(cacheDir, { recursive: true });
+  excludeMiseCache(gitDir);
+  return cacheDir;
+}
+
+function excludeMiseCache(gitDir: string) {
+  const excludePath = join(gitDir, 'info', 'exclude');
+  const current = existsSync(excludePath) ? readFileSync(excludePath, 'utf8') : '';
+  if (current.includes('.mise-cache/')) return;
+  appendFileSync(excludePath, '\n.mise-cache/\n');
 }

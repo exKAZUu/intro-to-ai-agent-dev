@@ -10,24 +10,32 @@ import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
+import {
+  createCodexEnv,
+  displayCommandExecutions,
+  displayFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayThreadInfo,
+  displayWorkspace,
+} from './helpers.js';
 
 const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-workspace-write-'));
-const planPath = join(workspace, 'lecture_plan.md');
+const catalogPath = join(workspace, 'lessonCatalog.js');
+await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
 await writeFile(
-  planPath,
+  catalogPath,
   `
-# 第4回講義案
-
-- Codex SDKを紹介する
-- ファイル編集を見せる
+export function describeLesson(lesson) {
+  return lesson.title + ": " + lesson.minutes + "分";
+}
   `.trim()
 );
 await execFileAsync('git', ['init'], { cwd: workspace });
-await execFileAsync('git', ['add', 'lecture_plan.md'], { cwd: workspace });
+await execFileAsync('git', ['add', 'lessonCatalog.js'], { cwd: workspace });
 
-const codex = new Codex();
+const codex = new Codex({ env: createCodexEnv(workspace) });
 const thread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
@@ -37,15 +45,17 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-lecture_plan.md を編集し、前半は「Agents SDKの代替」、後半は「Codex SDKでしか作りにくい開発ワークフロー」という構成が分かるようにしてください。
-箇条書きには各項目の学習目標も追加してください。
-編集後に git diff -- lecture_plan.md で差分を確認してください。
+lessonCatalog.js を編集し、lesson が不正な場合は分かりやすい Error を投げるようにしてください。
+title は空でない文字列、minutes は正の数であることを確認してください。
+編集後に node -e "import('./lessonCatalog.js').then(({describeLesson}) => console.log(describeLesson({title:'Codex SDK', minutes:15})))" を実行して動作確認してください。
+最後に git diff -- lessonCatalog.js で差分を確認してください。
 `.trim());
 
 displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
-console.log('\n=== 編集後のlecture_plan.md ===\n');
-console.log(await readFile(planPath, 'utf8'));
+console.log('\n=== 編集後のlessonCatalog.js ===\n');
+console.log(await readFile(catalogPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
+displayCommandExecutions(turn.items);
 displayThreadInfo(thread.id, turn.usage);

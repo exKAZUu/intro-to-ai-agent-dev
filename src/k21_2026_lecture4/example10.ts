@@ -1,5 +1,5 @@
 /**
- * 実装担当threadとレビュー担当threadを分け、sandbox権限で役割分担する例。
+ * 1つのCodex threadで、調査、計画、実装、検証を段階的に進める例。
  */
 
 import { execFile } from 'node:child_process';
@@ -11,7 +11,8 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
-  assertNoFileChanges,
+  createCodexEnv,
+  displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
   displayItemSummary,
@@ -20,20 +21,42 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-implement-review-'));
-const filePath = join(workspace, 'metrics.js');
+const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-staged-workflow-'));
+await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
 await writeFile(
-  filePath,
+  join(workspace, 'README.md'),
   `
-export function average(scores) {
-  return 0;
-}
+# Registration helper
+
+Build a small module that normalizes workshop registration records.
+The module should trim names, lower-case email addresses, and reject records without a name or email.
+`.trim()
+);
+await writeFile(
+  join(workspace, 'registration.test.js'),
+  `
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { normalizeRegistration } from './registration.js';
+
+test('normalizes a valid registration', () => {
+  assert.deepEqual(normalizeRegistration({ name: '  Alice  ', email: 'ALICE@EXAMPLE.COM' }), {
+    name: 'Alice',
+    email: 'alice@example.com',
+  });
+});
+
+test('rejects incomplete registrations', () => {
+  assert.throws(() => normalizeRegistration({ name: '', email: 'a@example.com' }), /name/);
+  assert.throws(() => normalizeRegistration({ name: 'Alice', email: '' }), /email/);
+});
 `.trim()
 );
 await execFileAsync('git', ['init'], { cwd: workspace });
 
-const codex = new Codex();
-const implementer = codex.startThread({
+const codex = new Codex({ env: createCodexEnv(workspace) });
+const thread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
   sandboxMode: 'workspace-write',
@@ -41,34 +64,32 @@ const implementer = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-const implementation = await implementer.run(`
-metrics.js の average(scores) を実装してください。
-空配列なら0を返し、それ以外は平均値を返してください。
-実装後に MISE_CACHE_DIR=$PWD/.mise-cache node -e "import('./metrics.js').then(({average}) => console.log(average([5,3,4,2,5])))" を実行し、3.8が出ることを確認してください。
-`.trim());
-
-const reviewer = codex.startThread({
-  workingDirectory: workspace,
-  skipGitRepoCheck: true,
-  sandboxMode: 'read-only',
-  approvalPolicy: 'never',
-  modelReasoningEffort: 'low',
-});
-
-const review = await reviewer.run(`
-metrics.js を読み、実装担当の成果物をレビューしてください。
-空配列、数値以外の入力、検証コマンドの観点で短く評価してください。
-ファイルは変更しないでください。
-`.trim());
-
 displayWorkspace(workspace);
-displayFinalResponse('実装担当', implementation.finalResponse);
+
+const investigation = await thread.run(`
+README.md と registration.test.js を読み、必要な実装作業を2点で整理してください。
+このturnではファイルを変更しないでください。
+`.trim());
+displayFinalResponse('調査', investigation.finalResponse);
+displayItemSummary(investigation.items);
+
+const implementation = await thread.run(`
+調査結果に基づき registration.js を作成してください。
+実行確認は次のturnで行うので、このturnでは実装だけをしてください。
+`.trim());
+displayFinalResponse('実装', implementation.finalResponse);
 displayItemSummary(implementation.items);
 displayFileChanges(implementation.items);
-displayFinalResponse('レビュー担当', review.finalResponse);
-displayItemSummary(review.items);
-assertNoFileChanges(review.items);
-displayThreadInfo(implementer.id, implementation.usage);
-displayThreadInfo(reviewer.id, review.usage);
-console.log('\n=== metrics.js ===\n');
-console.log(await readFile(filePath, 'utf8'));
+
+const verification = await thread.run(`
+node --test registration.test.js を実行し、すべてのテストが通ることを確認してください。
+失敗した場合は registration.js を修正し、同じコマンドで再検証してください。
+確認したコマンドと結果を回答に含めてください。
+`.trim());
+displayFinalResponse('検証', verification.finalResponse);
+displayItemSummary(verification.items);
+displayFileChanges(verification.items);
+displayCommandExecutions(verification.items);
+displayThreadInfo(thread.id, verification.usage);
+console.log('\n=== registration.js ===\n');
+console.log(await readFile(join(workspace, 'registration.js'), 'utf8'));
