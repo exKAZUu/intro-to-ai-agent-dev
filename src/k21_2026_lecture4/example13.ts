@@ -38,7 +38,7 @@ if (!usedFallback && shouldFallbackFromLiveSearchResult(turn)) {
 }
 
 displayFinalResponse('調査結果', turn.finalResponse);
-if (usedFallback) console.log('\nweb searchが失敗したため、ローカル文脈のみでフォールバックしました。');
+if (usedFallback) console.log('\nweb searchを確認できなかったため、ローカル文脈のみでフォールバックしました。');
 displayItemSummary(turn.items);
 displayWebSearches(turn.items);
 assertNoFileChanges(turn.items);

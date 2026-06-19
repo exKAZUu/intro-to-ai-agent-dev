@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { ThreadEvent, ThreadItem, Usage } from '@openai/codex-sdk';
+import type { CommandExecutionItem, ThreadEvent, ThreadItem, Usage } from '@openai/codex-sdk';
 
 type ThreadItemType = ThreadItem['type'];
 
@@ -137,6 +137,28 @@ export function assertNoFileChanges(items: ThreadItem[]) {
   }
 }
 
+export function assertNoCommandExecutions(items: ThreadItem[]) {
+  const commandExecutionCount = countItems(items, 'command_execution');
+  console.log('\ncommand_execution items:', commandExecutionCount);
+  if (commandExecutionCount > 0) {
+    throw new Error('このturnではコマンド実行しない想定ですが、command_execution itemが含まれています。');
+  }
+}
+
+export function assertCommandSucceeded(items: ThreadItem[], expectedCommandPart: string, options: { minCount?: number } = {}) {
+  const executions = findCommandExecutions(items, expectedCommandPart);
+  const minCount = options.minCount ?? 1;
+  console.log(`\ncommand executions matching "${expectedCommandPart}":`, executions.length);
+  if (executions.length < minCount) {
+    throw new Error(`"${expectedCommandPart}" を含むコマンド実行が ${minCount} 回以上必要ですが、${executions.length} 回でした。`);
+  }
+
+  const lastExecution = executions.at(-1);
+  if (lastExecution?.exit_code !== 0) {
+    throw new Error(`"${expectedCommandPart}" を含む最後のコマンドが成功していません。`);
+  }
+}
+
 export function parseJson<T>(json: string): T {
   try {
     return JSON.parse(json) as T;
@@ -151,6 +173,10 @@ function summarizeItems(items: ThreadItem[]) {
     summary.set(item.type, (summary.get(item.type) ?? 0) + 1);
   }
   return Object.fromEntries(summary);
+}
+
+function findCommandExecutions(items: ThreadItem[], expectedCommandPart: string): CommandExecutionItem[] {
+  return items.filter((item): item is CommandExecutionItem => item.type === 'command_execution' && item.command.includes(expectedCommandPart));
 }
 
 function previewText(text: string) {

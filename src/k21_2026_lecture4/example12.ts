@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  assertNoFileChanges,
   createCodexEnv,
   displayCommandExecutions,
   displayFileChanges,
@@ -69,7 +70,7 @@ test('rejects invalid data', () => {
   const thread = codex.startThread({
     workingDirectory: workspace,
     skipGitRepoCheck: true,
-    sandboxMode: 'workspace-write',
+    sandboxMode: 'read-only',
     approvalPolicy: 'never',
     modelReasoningEffort: 'low',
   });
@@ -86,6 +87,7 @@ task.md と validator.test.js を読み、実装計画を2点で作ってくだ�
   displayWorkspace(workspace);
   displayFinalResponse('計画', plan.finalResponse);
   displayItemSummary(plan.items);
+  assertNoFileChanges(plan.items);
   displayThreadInfo(thread.id, plan.usage);
   console.log('\n=== 再開コマンド ===\n');
   console.log(`bun src/k21_2026_lecture4/example12.ts --thread ${thread.id} --workspace ${workspace}`);

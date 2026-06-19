@@ -24,6 +24,7 @@ Hosted code interpreter と Codex SDK の違いを、根拠ファイル名付き
 let finalResponse = '';
 const eventTypes = new Map<ThreadEvent['type'], number>();
 const completedItemTypes: string[] = [];
+let completedFileChangeCount = 0;
 
 displayWorkspace(workspace);
 for await (const event of events) {
@@ -31,6 +32,7 @@ for await (const event of events) {
   displayEvent(event);
   if (event.type === 'item.completed') {
     completedItemTypes.push(event.item.type);
+    if (event.item.type === 'file_change') completedFileChangeCount += 1;
     if (event.item.type === 'agent_message') finalResponse = event.item.text;
   }
 }
@@ -40,3 +42,7 @@ console.log('\n=== イベント種別 ===\n');
 console.dir(Object.fromEntries(eventTypes), { depth: null });
 console.log('\n=== 完了したitem種別 ===\n');
 console.dir(completedItemTypes, { depth: null });
+console.log('\nfile_change items:', completedFileChangeCount);
+if (completedFileChangeCount > 0) {
+  throw new Error('read-onlyで実行したstreamed turnにfile_change itemが含まれています。');
+}

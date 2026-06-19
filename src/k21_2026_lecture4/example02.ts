@@ -111,7 +111,7 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-bug-report.md、survey.csv、scripts/analyze-survey.js、scripts/analyze-survey.test.js を読み、次のCodex turnを制御するための修正計画JSONにしてください。
+bug-report.md、survey.csv、scripts/analyze-survey.js、scripts/analyze-survey.test.js を読み、このあと修正作業に進むための確認事項をJSONで整理してください。
 filesToInspect と commandsToRun には、このworkspaceに実在するファイルや実行可能なコマンドだけを入れてください。
 evidence には、どの実ファイルから何を確認したかを短く入れてください。
 commandsToRun には、受講者が見ても分かる素のコマンドだけを入れてください。
@@ -134,7 +134,7 @@ const parsed = parseJson<RepairPlan>(turn.finalResponse);
 displayWorkspace(workspace);
 displayFinalResponse('JSON文字列', turn.finalResponse);
 displayJson('パース後の修正計画', parsed);
-displayJson('アプリ側で次のturnに渡す制御情報', {
+displayJson('アプリ側で後続作業に渡す情報', {
   nextSandboxMode: parsed.requiresWriteAccess ? 'workspace-write' : 'read-only',
   nextStep: parsed.nextStep,
   commandsToRun: parsed.commandsToRun,

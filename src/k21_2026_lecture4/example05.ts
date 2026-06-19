@@ -16,9 +16,9 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-src/k21_2026_lecture3/README.md と src/k21_2026_lecture4/README.md を読み、
-第3回から第4回へ何が発展しているかを、根拠ファイル名付きで説明してください。
-単なる社内資料QAではなく、コードベース内の複数教材ファイルを読む開発支援として答えてください。
+src/k21_2026_lecture3/example08.ts と src/k21_2026_lecture4/example06.ts を読み、
+Hosted code interpreterを使う一時分析と、リポジトリに分析スクリプトを残すCodex SDKの進め方の違いを、根拠ファイル名付きで説明してください。
+ファイル読み取りtoolを自作せずに、workspace内の教材コードを直接読む例として答えてください。
 ファイルは変更しないでください。
 `.trim());
 

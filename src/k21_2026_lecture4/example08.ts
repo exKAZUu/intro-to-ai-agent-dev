@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  assertCommandSucceeded,
   createCodexEnv,
   displayCommandExecutions,
   displayFileChanges,
@@ -75,4 +76,5 @@ console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
+assertCommandSucceeded(turn.items, 'node --test discount.test.js', { minCount: 2 });
 displayThreadInfo(thread.id, turn.usage);

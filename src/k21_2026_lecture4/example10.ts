@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  assertNoCommandExecutions,
   assertNoFileChanges,
   createCodexEnv,
   displayCommandExecutions,
@@ -94,6 +95,8 @@ const implementation = await thread.run(`
 displayFinalResponse('実装', implementation.finalResponse);
 displayItemSummary(implementation.items);
 displayFileChanges(implementation.items);
+displayCommandExecutions(implementation.items);
+assertNoCommandExecutions(implementation.items);
 
 const verification = await thread.run(`
 node --test registration.test.js を実行し、すべてのテストが通ることを確認してください。
