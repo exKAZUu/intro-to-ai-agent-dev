@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
+import { displayFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
 
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-edit-'));
 const planPath = join(workspace, 'lecture_plan.md');
@@ -34,12 +34,14 @@ const thread = codex.startThread({
 
 const turn = await thread.run(`
 lecture_plan.md を編集し、各題材に23分の演習時間と1文の学習目標を追加してください。
+第3回のtools/MCP/guardrailsを、第4回のCodex SDKにどう接続するかが分かる表現にしてください。
 90分講義の残り時間で導入と振り返りができるように、最後に合計演習時間も追記してください。
 `.trim());
 
-console.log('\nWorkspace:', workspace);
+displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
 console.log('\n=== 編集後のファイル ===\n');
 console.log(await readFile(planPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
+displayThreadInfo(thread.id, turn.usage);

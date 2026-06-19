@@ -10,7 +10,16 @@ import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary, parseJson } from './helpers.js';
+import {
+  displayCommandExecutions,
+  displayFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayJson,
+  displayThreadInfo,
+  displayWorkspace,
+  parseJson,
+} from './helpers.js';
 
 const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-'));
@@ -53,11 +62,13 @@ const turn = await thread.run(
   `
 analyze-survey.js を作成し、survey.csv を読み込んで分析してください。
 node analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
-平均満足度とハンズオン完了率は、必ず作成したスクリプトの計算結果を使ってください。
+平均満足度、ハンズオン完了率、最頻出の難所は、必ず作成したスクリプトの計算結果を使ってください。
+改善アクションは、hardest_topic と request の両方に根拠があるものに絞ってください。
 `.trim(),
   { outputSchema: SurveySchema }
 );
 
+displayWorkspace(workspace);
 displayFinalResponse('JSON文字列', turn.finalResponse);
 console.log('\n=== 作成されたanalyze-survey.js ===\n');
 console.log(await readFile(scriptPath, 'utf8'));
@@ -65,5 +76,5 @@ displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
 const parsed = parseJson<{ averageScore: number; handsOnCompletionRate: number }>(turn.finalResponse);
-console.log('\n平均満足度:', parsed.averageScore);
-console.log('ハンズオン完了率:', parsed.handsOnCompletionRate);
+displayJson('パース後の分析結果', parsed);
+displayThreadInfo(thread.id, turn.usage);

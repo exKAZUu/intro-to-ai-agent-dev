@@ -1,5 +1,5 @@
 /**
- * Codex SDKの最小構成で、リポジトリを読み取るコーディングエージェントとして使う例。
+ * Codex SDKの最小構成で、read-onlyのリポジトリ調査を行う例。
  */
 
 import { Codex } from '@openai/codex-sdk';
@@ -15,7 +15,8 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-README.md と src ディレクトリを確認し、このリポジトリの目的を日本語で2文以内で説明してください。
+README.md、package.json、src ディレクトリを確認してください。
+このリポジトリの目的と、講義ごとの題材の進み方を日本語で3文以内で説明してください。
 ファイルは変更しないでください。
 `.trim());
 

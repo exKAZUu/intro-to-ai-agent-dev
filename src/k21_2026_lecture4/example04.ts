@@ -4,7 +4,9 @@
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse } from './helpers.js';
+import type { ThreadEvent } from '@openai/codex-sdk';
+
+import { displayEvent, displayFinalResponse } from './helpers.js';
 
 const codex = new Codex();
 const thread = codex.startThread({
@@ -15,23 +17,25 @@ const thread = codex.startThread({
 });
 
 const { events } = await thread.runStreamed(`
-src/k21_2026_lecture3/example01.ts から example03.ts までを確認し、アクセスログ集計を改善していく流れを1段落で説明してください。
+src/k21_2026_lecture3/example01.ts から example05.ts までを確認してください。
+LLM単体、Responses APIのFunction Calling、Agents SDKのtoolへ進む流れを1段落で説明してください。
 ファイルは変更しないでください。
 `.trim());
 
 let finalResponse = '';
+const eventTypes = new Map<ThreadEvent['type'], number>();
 const completedItemTypes: string[] = [];
 for await (const event of events) {
+  eventTypes.set(event.type, (eventTypes.get(event.type) ?? 0) + 1);
+  displayEvent(event);
   if (event.type === 'item.completed') {
     completedItemTypes.push(event.item.type);
-    console.log('completed item:', event.item.type);
     if (event.item.type === 'agent_message') finalResponse = event.item.text;
-  }
-  if (event.type === 'turn.completed') {
-    console.log('usage:', event.usage);
   }
 }
 
 displayFinalResponse('最終回答', finalResponse);
+console.log('\n=== イベント種別 ===\n');
+console.dir(Object.fromEntries(eventTypes), { depth: null });
 console.log('\n=== 完了したitem種別 ===\n');
 console.dir(completedItemTypes, { depth: null });

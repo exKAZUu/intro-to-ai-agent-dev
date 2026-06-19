@@ -10,7 +10,14 @@ import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayCommandExecutions, displayFileChanges, displayFinalResponse, displayItemSummary } from './helpers.js';
+import {
+  displayCommandExecutions,
+  displayFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayThreadInfo,
+  displayWorkspace,
+} from './helpers.js';
 
 const execFileAsync = promisify(execFile);
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-'));
@@ -37,13 +44,14 @@ const thread = codex.startThread({
 const turn = await thread.run(`
 survey.js は平均満足度を出すつもりですが、今は合計を出してしまいます。
 バグを修正し、node survey.js を実行して average=3.8 になることを確認してください。
-確認したコマンドと結果を最終回答にも含めてください。
+修正理由、確認したコマンド、確認結果を最終回答にも含めてください。
 `.trim());
 
-console.log('\nWorkspace:', workspace);
+displayWorkspace(workspace);
 displayFinalResponse('Codexの回答', turn.finalResponse);
 console.log('\n=== 修正後のsurvey.js ===\n');
 console.log(await readFile(scriptPath, 'utf8'));
 displayItemSummary(turn.items);
 displayFileChanges(turn.items);
 displayCommandExecutions(turn.items);
+displayThreadInfo(thread.id, turn.usage);

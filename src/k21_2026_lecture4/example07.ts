@@ -4,7 +4,7 @@
 
 import { Codex } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayWebSearches } from './helpers.js';
+import { displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
 
 const codex = new Codex();
 const thread = codex.startThread({
@@ -33,3 +33,4 @@ web searchを使って OpenAI Agents SDK TypeScript の tools と MCP の公式�
 displayFinalResponse('調査結果', turn.finalResponse);
 displayItemSummary(turn.items);
 displayWebSearches(turn.items);
+displayThreadInfo(thread.id, turn.usage);

@@ -1,5 +1,5 @@
 /**
- * 同じCodex threadに続けて依頼し、前ターンのリポジトリ理解を引き継ぐ例。
+ * 同じCodex threadに続けて依頼し、前ターンのリポジトリ理解を設計判断に使う例。
  */
 
 import { Codex } from '@openai/codex-sdk';
@@ -15,14 +15,16 @@ const thread = codex.startThread({
 });
 
 const first = await thread.run(`
-src/k21_2026_lecture3 の構成を確認し、講義3がどのような流れでAgents SDKを教えているかを3点で要約してください。
+src/k21_2026_lecture2 と src/k21_2026_lecture3 の構成を確認してください。
+第2回から第3回にかけて、LLM単体、Responses API、Function Calling、Agents SDKへどう進んでいるかを3点で要約してください。
 ファイルは変更しないでください。
 `.trim());
 displayFinalResponse('1回目', first.finalResponse);
 displayItemSummary(first.items);
 
 const second = await thread.run(`
-先ほどの理解を踏まえて、lecture4でCodex SDKを教える場合に対応させるべき概念を3つ挙げてください。
+先ほどの理解を踏まえて、src/k21_2026_lecture4 で Codex SDK を教えるときに対応させるべき概念を3つ挙げてください。
+各概念は「第3回の概念 -> Codex SDKでの見せ方」の形で説明してください。
 ファイルは変更しないでください。
 `.trim());
 displayFinalResponse('2回目', second.finalResponse);

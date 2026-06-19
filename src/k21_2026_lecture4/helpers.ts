@@ -1,4 +1,4 @@
-import type { ThreadItem, Usage } from '@openai/codex-sdk';
+import type { ThreadEvent, ThreadItem, Usage } from '@openai/codex-sdk';
 
 type ThreadItemType = ThreadItem['type'];
 
@@ -10,9 +10,15 @@ export function displayFinalResponse(label: string, finalResponse: string) {
 export function displayThreadInfo(threadId: string | null, usage: Usage | null) {
   console.log('\n=== Thread情報 ===\n');
   console.log('Thread ID:', threadId ?? '(初回イベント前のため未確定)');
-  if (usage) {
-    console.log('usage:', usage);
+  displayUsage(usage);
+}
+
+export function displayUsage(usage: Usage | null) {
+  if (!usage) {
+    console.log('usage: (未取得)');
+    return;
   }
+  console.log('usage:', usage);
 }
 
 export function displayItemSummary(items: ThreadItem[]) {
@@ -38,6 +44,7 @@ export function displayCommandExecutions(items: ThreadItem[]) {
             {
               command: item.command,
               exitCode: item.exit_code,
+              outputPreview: previewText(item.aggregated_output),
               status: item.status,
             },
           ]
@@ -71,8 +78,46 @@ export function displayMcpToolCalls(items: ThreadItem[]) {
   );
 }
 
+export function displayJson(label: string, value: unknown) {
+  console.log(`\n=== ${label} ===\n`);
+  console.log(JSON.stringify(value, null, 2));
+}
+
+export function displayWorkspace(workspace: string) {
+  console.log('\n=== Workspace ===\n');
+  console.log(workspace);
+}
+
+export function displayEvent(event: ThreadEvent) {
+  if (event.type === 'thread.started') {
+    console.log('thread.started:', event.thread_id);
+    return;
+  }
+  if (event.type === 'item.started' || event.type === 'item.updated' || event.type === 'item.completed') {
+    console.log(`${event.type}: ${event.item.type}`);
+    return;
+  }
+  if (event.type === 'turn.completed') {
+    console.log('turn.completed:', event.usage);
+    return;
+  }
+  if (event.type === 'turn.failed' || event.type === 'error') {
+    console.log(`${event.type}:`, event.type === 'turn.failed' ? event.error.message : event.message);
+    return;
+  }
+  console.log(event.type);
+}
+
 export function countItems(items: ThreadItem[], type: ThreadItemType) {
   return items.filter((item) => item.type === type).length;
+}
+
+export function assertNoFileChanges(items: ThreadItem[]) {
+  const fileChangeCount = countItems(items, 'file_change');
+  console.log('\nfile_change items:', fileChangeCount);
+  if (fileChangeCount > 0) {
+    throw new Error('read-onlyで実行したturnにfile_change itemが含まれています。');
+  }
 }
 
 export function parseJson<T>(json: string): T {
@@ -89,4 +134,9 @@ function summarizeItems(items: ThreadItem[]) {
     summary.set(item.type, (summary.get(item.type) ?? 0) + 1);
   }
   return Object.fromEntries(summary);
+}
+
+function previewText(text: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
 }
