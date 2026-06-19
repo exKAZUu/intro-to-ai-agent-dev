@@ -3,11 +3,12 @@
  */
 
 import { Agent, run, type Usage as AgentsUsage } from '@openai/agents';
-import type { Usage as CodexUsage } from '@openai/codex-sdk';
+import type { ThreadOptions, Usage as CodexUsage } from '@openai/codex-sdk';
 
 import { createCodex, displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace } from './helpers.js';
 
-const model = 'gpt-5.4-nano';
+const agentsModel = process.env.AGENTS_COMPARE_MODEL ?? 'gpt-5.4-nano';
+const codexModel = process.env.CODEX_COMPARE_MODEL;
 const workspace = process.cwd();
 
 const task = `
@@ -22,13 +23,14 @@ const task = `
 `.trim();
 
 const agentsResult = await run(createAgentsSdkAgent(), task, { maxTurns: 1 });
-const codexThread = createCodex().startThread({
+const codexThreadOptions: ThreadOptions = {
   approvalPolicy: 'never',
-  model,
+  ...(codexModel ? { model: codexModel } : {}),
   modelReasoningEffort: 'low',
   sandboxMode: 'read-only',
   workingDirectory: workspace,
-});
+};
+const codexThread = createCodex().startThread(codexThreadOptions);
 const codexResult = await codexThread.run(task);
 
 displayWorkspace(workspace);
@@ -37,6 +39,10 @@ displayFinalResponse('Codex SDK の回答', codexResult.finalResponse);
 displayJson('usage比較', {
   agentsSdk: toComparableAgentsUsage(agentsResult.state.usage),
   codexSdk: toComparableCodexUsage(codexResult.usage),
+  models: {
+    agentsSdk: agentsModel,
+    codexSdk: codexModel ?? 'Codex CLI default',
+  },
   note: '同じユーザー依頼でも、SDKが組み立てるシステム文脈や実行ループが異なるため、トークン量は一致しません。',
 });
 displayJson('Agents SDK raw response数', {
@@ -47,7 +53,7 @@ displayThreadInfo(codexThread.id, codexResult.usage);
 
 function createAgentsSdkAgent() {
   return new Agent({
-    model,
+    model: agentsModel,
     modelSettings: {
       reasoning: { effort: 'low' },
       text: { verbosity: 'low' },
