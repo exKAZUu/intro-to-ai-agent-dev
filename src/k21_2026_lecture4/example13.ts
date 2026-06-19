@@ -2,7 +2,7 @@
  * webSearchModeで公式情報を確認し、ローカルコードベース文脈と組み合わせる例。
  */
 
-import { Codex } from '@openai/codex-sdk';
+import { Codex, type RunResult } from '@openai/codex-sdk';
 
 import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
 
@@ -24,28 +24,17 @@ let thread = codex.startThread({
   modelReasoningEffort: 'low',
 });
 
-let turn;
+let turn: RunResult;
 try {
   turn = await thread.run(prompt);
 } catch (error) {
   usedFallback = true;
-  thread = codex.startThread({
-    workingDirectory: process.cwd(),
-    sandboxMode: 'read-only',
-    approvalPolicy: 'never',
-    webSearchMode: 'disabled',
-    modelReasoningEffort: 'low',
-  });
-  turn = await thread.run(`
-web search が利用できない環境として扱います。
-src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example06.ts を読み、
-ローカルコード文脈だけから授業で補足すべき注意点を3つ挙げてください。
-web search が失敗したため、公式情報の確認は講師デモまたは環境設定後に行う必要があることも含めてください。
-ファイルは変更しないでください。
+  turn = await runLocalFallback(`run()が例外を投げました: ${error instanceof Error ? error.message : String(error)}`);
+}
 
-元のエラー:
-${error instanceof Error ? error.message : String(error)}
-`.trim());
+if (!usedFallback && shouldFallbackFromLiveSearchResult(turn)) {
+  usedFallback = true;
+  turn = await runLocalFallback(createFallbackReason(turn));
 }
 
 displayFinalResponse('調査結果', turn.finalResponse);
@@ -54,3 +43,41 @@ displayItemSummary(turn.items);
 displayWebSearches(turn.items);
 assertNoFileChanges(turn.items);
 displayThreadInfo(thread.id, turn.usage);
+
+async function runLocalFallback(reason: string) {
+  thread = codex.startThread({
+    workingDirectory: process.cwd(),
+    sandboxMode: 'read-only',
+    approvalPolicy: 'never',
+    webSearchMode: 'disabled',
+    modelReasoningEffort: 'low',
+  });
+  return await thread.run(`
+web search が利用できない、または利用できたことを確認できない環境として扱います。
+src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example06.ts を読み、
+ローカルコード文脈だけから授業で補足すべき注意点を3つ挙げてください。
+公式情報の確認は講師デモまたは環境設定後に行う必要があることも含めてください。
+ファイルは変更しないでください。
+
+fallback理由:
+${reason}
+`.trim());
+}
+
+function shouldFallbackFromLiveSearchResult(turn: RunResult) {
+  return hasErrorItem(turn) || !hasWebSearchItem(turn);
+}
+
+function createFallbackReason(turn: RunResult) {
+  const errors = turn.items.flatMap((item) => (item.type === 'error' ? [item.message] : []));
+  if (errors.length > 0) return `error itemが返りました: ${errors.join(' / ')}`;
+  return 'webSearchMode: live で実行しましたが、web_search itemを確認できませんでした。';
+}
+
+function hasErrorItem(turn: RunResult) {
+  return turn.items.some((item) => item.type === 'error');
+}
+
+function hasWebSearchItem(turn: RunResult) {
+  return turn.items.some((item) => item.type === 'web_search');
+}

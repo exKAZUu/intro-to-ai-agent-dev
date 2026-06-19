@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 import { Codex } from '@openai/codex-sdk';
 
 import {
+  assertNoFileChanges,
   createCodexEnv,
   displayCommandExecutions,
   displayFileChanges,
@@ -56,22 +57,35 @@ test('rejects incomplete registrations', () => {
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });
-const thread = codex.startThread({
+const investigationThread = codex.startThread({
   workingDirectory: workspace,
   skipGitRepoCheck: true,
-  sandboxMode: 'workspace-write',
+  sandboxMode: 'read-only',
   approvalPolicy: 'never',
   modelReasoningEffort: 'low',
 });
 
 displayWorkspace(workspace);
 
-const investigation = await thread.run(`
+const investigation = await investigationThread.run(`
 README.md と registration.test.js を読み、必要な実装作業を2点で整理してください。
-このturnではファイルを変更しないでください。
+このturnではファイルを変更できない read-only sandbox で調査だけを行っています。
 `.trim());
 displayFinalResponse('調査', investigation.finalResponse);
 displayItemSummary(investigation.items);
+assertNoFileChanges(investigation.items);
+
+if (!investigationThread.id) {
+  throw new Error('Codex thread IDを取得できませんでした。');
+}
+
+const thread = codex.resumeThread(investigationThread.id, {
+  workingDirectory: workspace,
+  skipGitRepoCheck: true,
+  sandboxMode: 'workspace-write',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'low',
+});
 
 const implementation = await thread.run(`
 調査結果に基づき registration.js を作成してください。

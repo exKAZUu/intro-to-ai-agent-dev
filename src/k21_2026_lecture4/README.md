@@ -8,7 +8,7 @@
 
 1. Agents SDK 的なプログラムを Codex SDK でも表現し、使い分けを確認する
    - `example01.ts`: lecture3 / lecture4 のREADMEを読んだうえで用途ごとの SDK 選定表を JSON で返し、Agents SDK が自然な領域と Codex SDK が自然な領域を確認します。
-   - `example02.ts`: 非構造な開発相談を、次の Codex turn を制御する修正計画 JSON に変換します。
+   - `example02.ts`: 非構造な開発相談と実在する壊れた教材ファイルを読み、次の Codex turn を制御する修正計画 JSON に変換します。
    - `example03.ts`: 同じ thread に連続依頼し、追加制約を反映した計画更新を行います。
    - `example04.ts`: `runStreamed()` で、複数ファイルを読む調査の進行イベントを観察します。
 2. Agents SDK の tool / code interpreter 的な処理から、Codex SDK の workspace 作業へ進む
@@ -18,11 +18,11 @@
    - `example07.ts`: `workspace-write` で既存コードを編集し、`file_change` と検証コマンドを確認します。
    - `example08.ts`: 落ちているテストを実行し、バグ修正と再検証を1つの turn で行います。
    - `example09.ts`: read-only sandbox でコードレビューだけを許可し、変更がないことを確認します。
-   - `example10.ts`: 1つの thread で調査、計画、実装、検証を段階的に進めます。
+   - `example10.ts`: read-only で調査した thread を workspace-write で再開し、調査、計画、実装、検証を段階的に進めます。
    - `example11.ts`: 実装担当 thread とレビュー担当 thread を分け、レビュー結果を実装担当へ戻します。
    - `example12.ts`: `resumeThread()` で中断した開発作業を別プロセス想定で再開します。
-   - `example13.ts`: `webSearchMode` で外部公式情報とローカルコードベース文脈を組み合わせます。
-   - `example14.ts`: Agents SDK と Codex SDK に同じ単発依頼を投げ、usage の違いを比較します。
+   - `example13.ts`: `webSearchMode` で外部公式情報とローカルコードベース文脈を組み合わせ、例外だけでなく `error` item や `web_search` item 不在もフォールバック対象として扱います。
+   - `example14.ts`: Agents SDK と Codex SDK に同じ単発依頼を投げ、モデル条件を表示したうえで usage の違いを比較します。
 
 ## プログラム例
 
@@ -30,8 +30,8 @@
   - 概要: lecture3 / lecture4 のREADMEを読み、用途ごとの推奨 SDK と理由を JSON で返します。
   - 学習のねらい: Codex SDK でも単発 `run()` と構造化出力は使えますが、純粋なアプリ内対話は Agents SDK、コードベースを読む開発作業は Codex SDK が自然であることを、実際の教材ファイルを根拠に確認します。
 - `example02.ts`
-  - 概要: 自然文のバグ報告を、調査対象ファイル、疑わしい原因、検証コマンド、必要権限を持つ JSON に変換します。
-  - 学習のねらい: structured output を「JSONで返せる」だけで終わらせず、次の Codex turn、UI、CI が参照する開発制御データとして使います。
+  - 概要: 自然文のバグ報告と、実在する `survey.csv` / `scripts/analyze-survey.js` / `scripts/analyze-survey.test.js` を読み、調査対象ファイル、根拠、疑わしい原因、検証コマンド、必要権限を持つ JSON に変換します。
+  - 学習のねらい: structured output を「JSONで返せる」だけで終わらせず、次の Codex turn、UI、CI が参照する開発制御データとして使います。出力されるファイル名やコマンドは推測ではなく、workspace に存在する教材ファイルに基づきます。
 - `example03.ts`
   - 概要: 同じ Codex thread で、最初の計画に追加制約を与えて計画を更新します。
   - 学習のねらい: Agents SDK の会話履歴やセッション管理に相当する文脈保持を、Codex thread が担えることを確認します。ただし、アプリ内エージェント制御は Agents SDK が自然である点も残します。
@@ -54,8 +54,8 @@
   - 概要: 小さなプロジェクトを read-only でレビューし、修正提案だけを受け取ります。
   - 学習のねらい: レビューでは書き込み権限を渡さないという、アプリケーション側の安全境界を作れることを確認します。
 - `example10.ts`
-  - 概要: 1つの thread で調査、計画、実装、検証を段階的に進めます。
-  - 学習のねらい: 独立した単発依頼ではなく、開発文脈を持ち続けるエージェントとして Codex を使います。
+  - 概要: 1つの thread を read-only で開始して調査だけを行い、同じ thread ID を `workspace-write` で再開して実装と検証を進めます。
+  - 学習のねらい: 独立した単発依頼ではなく、開発文脈を持ち続けるエージェントとして Codex を使います。調査 turn では sandbox と `assertNoFileChanges()` で「変更していない」ことを確認し、権限を上げるタイミングを明示します。
 - `example11.ts`
   - 概要: 実装担当 thread がコードを書き、レビュー担当 thread が read-only で検査し、指摘を実装担当へ戻して再修正します。
   - 学習のねらい: Agents SDK の Handoff とは別に、Codex SDK の複数 thread と sandbox 権限で役割分担できることを学びます。これはOSレベルの完全隔離ではなく、ホストアプリが各 turn に渡す役割と権限を分ける設計例です。
@@ -63,11 +63,11 @@
   - 概要: 1回目の実行で計画と thread ID を出力し、2回目の実行で `--thread` と `--workspace` を渡して固定の一時ワークスペースで実装と検証を再開します。
   - 学習のねらい: 長い開発作業や人間の確認を挟む作業を、プロセスをまたいで再開できることを確認します。
 - `example13.ts`
-  - 概要: ローカルの Codex SDK 使用コードを読み、web search で公式情報を確認して改善案を出します。web search が使えない環境ではローカル文脈のみの調査にフォールバックします。
+  - 概要: ローカルの Codex SDK 使用コードを読み、web search で公式情報を確認して改善案を出します。web search が使えない環境や、`web_search` item を確認できない環境ではローカル文脈のみの調査にフォールバックします。
   - 学習のねらい: 外部情報検索だけでなく、ローカルコードベース文脈と組み合わせるところに Codex SDK の価値があることを確認します。
 - `example14.ts`
-  - 概要: 架空のインシデント引き継ぎメモを同じ入力として Agents SDK と Codex SDK の両方に渡し、回答と usage を比較します。
-  - 学習のねらい: 同じ単発依頼でも、SDK が組み立てる実行文脈やループが異なるため、トークン使用量や item の見え方が一致しないことを確認します。
+  - 概要: 架空のインシデント引き継ぎメモを同じ入力として Agents SDK と Codex SDK の両方に渡し、モデル条件、回答、usage を比較します。
+  - 学習のねらい: 同じ単発依頼でも、SDK が組み立てる実行文脈やループが異なるため、トークン使用量や item の見え方が一致しないことを確認します。既定では `SDK_COMPARE_MODEL` を両SDKに指定し、個別に `AGENTS_COMPARE_MODEL` / `CODEX_COMPARE_MODEL` を上書きした場合は厳密比較ではないことを出力します。
 
 ## 補足
 
@@ -80,4 +80,5 @@
 - `example06` 以降は `workspace-write` を使う例が含まれます。講義では、どの時点で read-only から書き込み権限へ切り替えるかを明示してください。
 - コマンド実行例では、node を mise などで管理している環境でも教材プロンプトに環境固有の変数を混ぜないため、Codex CLI 側の `MISE_CACHE_DIR` を一時ワークスペースの `.mise-cache` に設定し、`.git/info/exclude` で git の表示から除外しています。
 - `example12.ts` は初回実行だけでは計画で止まります。表示された再開コマンドを実行すると、同じ thread と初回実行時に作成した一時ワークスペースを使って実装と検証を続けます。
-- `example13.ts` は `webSearchMode: 'live'` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。web search が失敗した場合は、ローカルコード文脈だけで補足点を出すフォールバックを実行します。
+- `example13.ts` は `webSearchMode: 'live'` を使うため、実行環境の Codex CLI で web search が利用できる必要があります。`run()` の例外、`error` item、`web_search` item 不在のいずれかを検出した場合は、ローカルコード文脈だけで補足点を出すフォールバックを実行します。
+- `example14.ts` は既定で `SDK_COMPARE_MODEL`、未指定時は `gpt-5.4-nano` を Agents SDK と Codex SDK の両方に渡します。片方だけ条件を変えたい場合は `AGENTS_COMPARE_MODEL` または `CODEX_COMPARE_MODEL` で上書きできますが、その場合は厳密な usage 比較ではありません。

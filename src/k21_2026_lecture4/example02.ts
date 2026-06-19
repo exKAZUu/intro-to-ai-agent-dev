@@ -1,8 +1,8 @@
 /**
- * 非構造な開発依頼を、後続のCodex作業に渡すstructured outputへ変換する例。
+ * 非構造な開発依頼と実ファイルを読み、後続のCodex作業に渡すstructured outputへ変換する例。
  */
 
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -11,6 +11,7 @@ import { Codex } from '@openai/codex-sdk';
 import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace, parseJson } from './helpers.js';
 
 const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-structured-triage-'));
+await mkdir(join(workspace, 'scripts'));
 await writeFile(
   join(workspace, 'bug-report.md'),
   `
@@ -20,7 +21,58 @@ await writeFile(
 入力データは 5, 3, 4, 2, 5 なので、期待値は 3.8 のはずです。
 
 講義では、Codexにどのファイルを読ませ、どのコマンドで検証させるべきかをUIに表示したいです。
-いきなりファイルを書き換える前に、調査対象、疑わしい原因、実行すべき検証コマンド、書き込み権限が必要かを機械的に扱える形にしてください。
+いきなりファイルを書き換える前に、実在する調査対象、疑わしい原因、実行すべき検証コマンド、書き込み権限が必要かを機械的に扱える形にしてください。
+`.trim()
+);
+await writeFile(join(workspace, 'package.json'), '{"type":"module","scripts":{"test":"node --test scripts/analyze-survey.test.js"}}');
+await writeFile(
+  join(workspace, 'survey.csv'),
+  `
+name,satisfaction
+Alice,5
+Bob,3
+Carol,4
+Dave,2
+Eve,5
+`.trim()
+);
+await writeFile(
+  join(workspace, 'scripts', 'analyze-survey.js'),
+  `
+import { readFileSync } from 'node:fs';
+
+export function summarizeSurvey(csvText) {
+  const rows = csvText.trim().split('\\n').slice(1);
+  const total = rows.reduce((sum, row) => sum + Number(row.split(',')[1]), 0);
+  return { averageSatisfaction: total };
+}
+
+if (import.meta.url === \`file://\${process.argv[1]}\`) {
+  console.log(JSON.stringify(summarizeSurvey(readFileSync(new URL('../survey.csv', import.meta.url), 'utf8'))));
+}
+`.trim()
+);
+await writeFile(
+  join(workspace, 'scripts', 'analyze-survey.test.js'),
+  `
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { summarizeSurvey } from './analyze-survey.js';
+
+test('calculates average satisfaction', () => {
+  assert.equal(
+    summarizeSurvey(\`
+name,satisfaction
+Alice,5
+Bob,3
+Carol,4
+Dave,2
+Eve,5
+    \`.trim()).averageSatisfaction,
+    3.8
+  );
+});
 `.trim()
 );
 
@@ -33,6 +85,10 @@ const RepairPlanSchema = {
       items: { type: 'string' },
     },
     suspectedCause: { type: 'string' },
+    evidence: {
+      type: 'array',
+      items: { type: 'string' },
+    },
     commandsToRun: {
       type: 'array',
       items: { type: 'string' },
@@ -40,7 +96,7 @@ const RepairPlanSchema = {
     requiresWriteAccess: { type: 'boolean' },
     nextStep: { type: 'string', enum: ['inspect', 'edit', 'ask-human'] },
   },
-  required: ['summary', 'filesToInspect', 'suspectedCause', 'commandsToRun', 'requiresWriteAccess', 'nextStep'],
+  required: ['summary', 'filesToInspect', 'suspectedCause', 'evidence', 'commandsToRun', 'requiresWriteAccess', 'nextStep'],
   additionalProperties: false,
 } as const;
 
@@ -55,7 +111,9 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-bug-report.md を読み、次のCodex turnを制御するための修正計画JSONにしてください。
+bug-report.md、survey.csv、scripts/analyze-survey.js、scripts/analyze-survey.test.js を読み、次のCodex turnを制御するための修正計画JSONにしてください。
+filesToInspect と commandsToRun には、このworkspaceに実在するファイルや実行可能なコマンドだけを入れてください。
+evidence には、どの実ファイルから何を確認したかを短く入れてください。
 commandsToRun には、受講者が見ても分かる素のコマンドだけを入れてください。
 まだファイルは変更しないでください。
 `.trim(),
@@ -64,6 +122,7 @@ commandsToRun には、受講者が見ても分かる素のコマンドだけを
 
 type RepairPlan = {
   commandsToRun: string[];
+  evidence: string[];
   filesToInspect: string[];
   nextStep: 'inspect' | 'edit' | 'ask-human';
   requiresWriteAccess: boolean;
