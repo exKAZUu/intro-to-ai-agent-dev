@@ -1,6 +1,6 @@
 # k21_2026_lecture4
 
-ワークショップのプログラム例です。第2回の Responses API、第3回の Function Calling / Agents SDK / Hosted tools / Handoff / Guardrails / Tracing / MCP の流れを引き継ぎ、Codex SDK を「コードベースを読み、作業し、検証する開発エージェントをアプリケーションから呼び出すためのSDK」として扱います。
+ワークショップのプログラム例です。`src/lecture1` の LLM / Responses API 入門、`src/k21_2026_lecture2` の会話履歴・instructions・推論設定、第3回の Function Calling / Agents SDK / Hosted tools / Handoff / Guardrails / Tracing / MCP の流れを引き継ぎ、Codex SDK を「コードベースを読み、作業し、検証する開発エージェントをアプリケーションから呼び出すためのSDK」として扱います。
 
 中心テーマは、第3回で使った学習サイト利用ログ、演習アンケート、講義改善計画を、リポジトリ調査と実装作業に接続することです。前半では read-only の Codex thread でリポジトリ調査、会話状態、構造化出力、ストリーミングを確認します。後半では sandbox、ファイル編集、コマンド実行、レビュー担当の分離、Agents SDK からの Codex MCP 呼び出し、調査から検証までの一連の開発ワークフローに進みます。
 
@@ -8,7 +8,7 @@
 
 1. Codex SDK の最小単位を確認する
    - `example01.ts`: `Codex`、`startThread()`、`run()`、`sandboxMode: 'read-only'` の最小構成でリポジトリを調査します。
-   - `example02.ts`: 同じ thread に連続で依頼し、前ターンの調査結果を次の設計判断に使います。
+   - `example02.ts`: 同じ thread に連続で依頼し、講義1から第3回までの調査結果を次の設計判断に使います。
 2. Codex の出力をプログラムから扱う
    - `example03.ts`: `outputSchema` で、第3回と第4回の対応関係を JSON として受け取ります。
    - `example04.ts`: `runStreamed()` で、途中イベント、item 種別、usage を観察します。
@@ -35,7 +35,7 @@
   - 概要: Codex SDK の最小構成で、現在のリポジトリを read-only に調査します。
   - 学習のねらい: Responses API の単発応答や Agents SDK の `run()` と違い、Codex SDK では作業ディレクトリ、sandbox、approval policy を明示してコードベース文脈を読むエージェントを起動できることを確認します。
 - `example02.ts`
-  - 概要: 同じ Codex thread に、第3回の整理と第4回への対応付けを連続で依頼します。
+  - 概要: 同じ Codex thread に、講義1から第3回までの整理と第4回への対応付けを連続で依頼します。
   - 学習のねらい: `previous_response_id` を意識した第2回の会話履歴、Agents SDK の実行履歴と対応させながら、Codex thread が開発作業の文脈を保持する単位であることを確認します。
 - `example03.ts`
   - 概要: `outputSchema` で、lecture3 の概念と Codex SDK の概念の対応表を JSON として受け取ります。

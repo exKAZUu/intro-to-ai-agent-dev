@@ -41,7 +41,7 @@ const SurveySchema = {
   type: 'object',
   properties: {
     averageScore: { type: 'number' },
-    handsOnCompletionRate: { type: 'number' },
+    handsOnCompletionRate: { type: 'number', description: '0から100の百分率' },
     hardestTopics: { type: 'array', items: { type: 'string' } },
     improvementActions: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
   },
@@ -63,6 +63,7 @@ const turn = await thread.run(
 analyze-survey.js を作成し、survey.csv を読み込んで分析してください。
 node analyze-survey.js を実行し、平均満足度、ハンズオン完了率、最頻出の難所、改善アクション3つをJSONだけで返してください。
 平均満足度、ハンズオン完了率、最頻出の難所は、必ず作成したスクリプトの計算結果を使ってください。
+ハンズオン完了率は0から100の百分率で返してください。
 改善アクションは、hardest_topic と request の両方に根拠があるものに絞ってください。
 `.trim(),
   { outputSchema: SurveySchema }

@@ -15,8 +15,9 @@ const thread = codex.startThread({
 });
 
 const turn = await thread.run(`
-README.md、package.json、src ディレクトリを確認してください。
-このリポジトリの目的と、講義ごとの題材の進み方を日本語で3文以内で説明してください。
+README.md、package.json、src/lecture1、src/k21_2026_lecture2、src/k21_2026_lecture3、src/k21_2026_lecture4 を確認してください。
+このリポジトリの目的と、講義1から第4回までの題材の進み方を日本語で4文以内で説明してください。
+存在しないディレクトリは探さないでください。
 ファイルは変更しないでください。
 `.trim());
 

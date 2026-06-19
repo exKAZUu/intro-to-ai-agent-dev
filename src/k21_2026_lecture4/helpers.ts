@@ -25,6 +25,7 @@ export function displayItemSummary(items: ThreadItem[]) {
   const summary = summarizeItems(items);
   console.log('\n=== Codex item summary ===\n');
   console.dir(summary, { depth: null });
+  displayErrors(items);
 }
 
 export function displayFileChanges(items: ThreadItem[]) {
@@ -76,6 +77,14 @@ export function displayMcpToolCalls(items: ThreadItem[]) {
     ),
     { depth: null }
   );
+}
+
+export function displayErrors(items: ThreadItem[]) {
+  const errors = items.flatMap((item) => (item.type === 'error' ? [{ message: item.message }] : []));
+  if (errors.length === 0) return;
+
+  console.log('\n=== error items ===\n');
+  console.dir(errors, { depth: null });
 }
 
 export function displayJson(label: string, value: unknown) {

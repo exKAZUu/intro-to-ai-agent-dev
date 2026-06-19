@@ -42,8 +42,9 @@ const thread = codex.startThread({
 
 const turn = await thread.run(
   `
-src/k21_2026_lecture3 の流れを読み、lecture4でCodex SDKに対応させる学習概念をJSONで整理してください。
+src/k21_2026_lecture3/README.md と src/k21_2026_lecture4/README.md だけを読み、lecture4でCodex SDKに対応させる学習概念をJSONで整理してください。
 matchingConcepts は、第3回の概念と src/k21_2026_lecture4 の具体的なサンプルファイルを対応させてください。
+他のファイルは読まないでください。
 ファイルは変更しないでください。
 `.trim(),
   { outputSchema: LectureMappingSchema }

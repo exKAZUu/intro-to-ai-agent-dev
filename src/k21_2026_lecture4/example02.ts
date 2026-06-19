@@ -15,8 +15,8 @@ const thread = codex.startThread({
 });
 
 const first = await thread.run(`
-src/k21_2026_lecture2 と src/k21_2026_lecture3 の構成を確認してください。
-第2回から第3回にかけて、LLM単体、Responses API、Function Calling、Agents SDKへどう進んでいるかを3点で要約してください。
+src/lecture1、src/k21_2026_lecture2、src/k21_2026_lecture3 の構成を確認してください。
+講義1から第3回にかけて、LLM単体、Responses API、Function Calling、Agents SDKへどう進んでいるかを3点で要約してください。
 ファイルは変更しないでください。
 `.trim());
 displayFinalResponse('1回目', first.finalResponse);
