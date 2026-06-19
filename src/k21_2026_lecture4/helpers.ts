@@ -1,13 +1,23 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cp, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { CommandExecutionItem, ThreadEvent, ThreadItem, Usage } from '@openai/codex-sdk';
 
 type ThreadItemType = ThreadItem['type'];
+const currentDirectory = fileURLToPath(new URL('.', import.meta.url));
 
 export function createCodexEnv(workspace?: string) {
   const miseCacheDir = workspace ? createMiseCacheDir(workspace) : undefined;
   return miseCacheDir ? { ...getStringEnv(), MISE_CACHE_DIR: miseCacheDir } : undefined;
+}
+
+export async function createExampleWorkspace(exampleDirectory: string, temporaryDirectoryPrefix: string) {
+  const workspace = await mkdtemp(join(tmpdir(), temporaryDirectoryPrefix));
+  await cp(join(currentDirectory, exampleDirectory), workspace, { recursive: true });
+  return workspace;
 }
 
 export function displayFinalResponse(label: string, finalResponse: string) {

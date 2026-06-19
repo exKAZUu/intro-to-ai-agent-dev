@@ -30,7 +30,7 @@
   - 概要: lecture3 / lecture4 のREADMEを読み、用途ごとの推奨 SDK と理由を JSON で返します。
   - 学習のねらい: Codex SDK でも単発 `run()` と構造化出力は使えますが、純粋なアプリ内対話は Agents SDK、コードベースを読む開発作業は Codex SDK が自然であることを、実際の教材ファイルを根拠に確認します。
 - `example02.ts`
-  - 概要: 自然文のバグ報告と、実在する `survey.csv` / `scripts/analyze-survey.js` / `scripts/analyze-survey.test.js` を読み、調査対象ファイル、根拠、疑わしい原因、検証コマンド、必要権限を JSON に整理します。
+  - 概要: `example02/` に用意した自然文のバグ報告と `survey.csv` / `scripts/analyze-survey.js` / `scripts/analyze-survey.test.js` を読み、調査対象ファイル、根拠、疑わしい原因、検証コマンド、必要権限を JSON に整理します。
   - 学習のねらい: structured output を「JSONで返せる」だけで終わらせず、後続の修正作業、UI 表示、CI が参照しやすい情報として使います。出力されるファイル名やコマンドは推測ではなく、workspace に存在する教材ファイルに基づきます。
 - `example03.ts`
   - 概要: 同じ Codex thread で、最初の計画に追加制約を与えて計画を更新します。
@@ -42,13 +42,13 @@
   - 概要: lecture3 の Hosted code interpreter 例と lecture4 の Codex SDK 例を読み、一時分析とリポジトリに残る作業の違いを根拠ファイル名付きで整理します。
   - 学習のねらい: Agents SDK なら file search / read file tool を自作したくなる処理を、Codex SDK では workspace の読み取り能力として扱えることを学びます。
 - `example06.ts`
-  - 概要: `survey.csv` を分析する再利用可能な `scripts/analyze-survey.js`、npm script、README 手順を作成し、`node scripts/analyze-survey.js` で検証します。
+  - 概要: `example06/` に用意した `survey.csv` と README をもとに、再利用可能な `scripts/analyze-survey.js`、npm script、README 手順を作成し、`node scripts/analyze-survey.js` で検証します。
   - 学習のねらい: Hosted code interpreter 的な一時分析ではなく、リポジトリに残せるスクリプトと実行手順を作るところに Codex SDK の価値があることを確認します。
 - `example07.ts`
   - 概要: `lessonCatalog.js` に入力検証を追加し、正常系と異常系の実行確認、`git diff` を行います。
   - 学習のねらい: read-only の問い合わせから、権限付きの実装作業へ進んだときに何が起きるかを `file_change` とコマンド実行で確認します。
 - `example08.ts`
-  - 概要: 壊れた `discount.js` を、`node --test discount.test.js` の失敗を見ながら修正します。
+  - 概要: `example08/` に用意した壊れた `discount.js` を、`node --test discount.test.js` の失敗を見ながら修正します。
   - 学習のねらい: コードを読み、直し、コマンドで確認する Codex SDK の中核ループを体験します。テストコマンドが修正前後に実行され、最後に成功したことも host 側で確認します。
 - `example09.ts`
   - 概要: 小さなプロジェクトを read-only でレビューし、修正提案だけを受け取ります。
@@ -76,6 +76,7 @@
 - `codex` CLI が使える状態で実行してください。API キーまたは Codex のログイン状態は、ローカル環境の設定に従います。
 - 各 example はリポジトリルートから `bun src/k21_2026_lecture4/exampleXX.ts` の形で実行してください。`example01.ts`、`example04.ts`、`example05.ts`、`example13.ts` は `process.cwd()` を作業ディレクトリとして使います。
 - すべての書き込み例は一時ワークスペースを使い、現在のリポジトリ本体を書き換えません。
+- `example02/`、`example06/` などのディレクトリには、各 example が使う初期ファイルを置いています。`exampleXX.ts` はそれらを一時ワークスペースへコピーしてから実行するため、教材ファイルの中身をプログラム文字列として組み立てません。
 - `workspace-write` の例では、必要に応じて `skipGitRepoCheck: true` を使います。
 - `example06` 以降は `workspace-write` を使う例が含まれます。講義では、どの時点で read-only から書き込み権限へ切り替えるかを明示してください。
 - コマンド実行例では、node を mise などで管理している環境でも教材プロンプトに環境固有の変数を混ぜないため、Codex CLI 側の `MISE_CACHE_DIR` を一時ワークスペースの `.mise-cache` に設定し、`.git/info/exclude` で git の表示から除外しています。

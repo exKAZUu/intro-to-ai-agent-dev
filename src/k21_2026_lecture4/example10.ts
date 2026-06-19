@@ -3,9 +3,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
@@ -14,6 +13,7 @@ import {
   assertNoCommandExecutions,
   assertNoFileChanges,
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -23,38 +23,7 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-staged-workflow-'));
-await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
-await writeFile(
-  join(workspace, 'README.md'),
-  `
-# Registration helper
-
-Build a small module that normalizes workshop registration records.
-The module should trim names, lower-case email addresses, and reject records without a name or email.
-`.trim()
-);
-await writeFile(
-  join(workspace, 'registration.test.js'),
-  `
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-
-import { normalizeRegistration } from './registration.js';
-
-test('normalizes a valid registration', () => {
-  assert.deepEqual(normalizeRegistration({ name: '  Alice  ', email: 'ALICE@EXAMPLE.COM' }), {
-    name: 'Alice',
-    email: 'alice@example.com',
-  });
-});
-
-test('rejects incomplete registrations', () => {
-  assert.throws(() => normalizeRegistration({ name: '', email: 'a@example.com' }), /name/);
-  assert.throws(() => normalizeRegistration({ name: 'Alice', email: '' }), /email/);
-});
-`.trim()
-);
+const workspace = await createExampleWorkspace('example10', 'k21-codex-staged-workflow-');
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });

@@ -3,15 +3,15 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
 import {
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -21,35 +21,9 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-code-interpreter-'));
+const workspace = await createExampleWorkspace('example06', 'k21-codex-code-interpreter-');
 const scriptPath = join(workspace, 'scripts', 'analyze-survey.js');
 const readmePath = join(workspace, 'README.md');
-await mkdir(join(workspace, 'scripts'));
-await writeFile(
-  join(workspace, 'package.json'),
-  `
-{"type":"module","scripts":{"analyze":"node scripts/analyze-survey.js"}}
-`.trim()
-);
-await writeFile(
-  readmePath,
-  `
-# Survey tools
-
-アンケートCSVを再利用可能なスクリプトで集計します。
-`.trim()
-);
-await writeFile(
-  join(workspace, 'survey.csv'),
-  `
-name,attendance_type,satisfaction,hardest_topic,hands_on_completed,request
-Alice,対面,5,tools,完了,実用例を増やしたい
-Bob,オンライン,3,MCP,未完了,接続手順を詳しく知りたい
-Carol,対面,4,MCP,完了,Excel連携を試したい
-Dave,録画,2,guardrails,未完了,失敗例があると理解しやすい
-Eve,対面,5,tools,完了,業務に近い題材がよい
-`.trim()
-);
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });

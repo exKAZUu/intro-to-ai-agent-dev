@@ -3,29 +3,14 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
 
-import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
+import { assertNoFileChanges, createExampleWorkspace, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWorkspace } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-readonly-review-'));
-await writeFile(
-  join(workspace, 'report.js'),
-  `
-export function completionRate(completed, total) {
-  return completed / total;
-}
-
-export function formatRate(rate) {
-  return Math.round(rate) + "%";
-}
-`.trim()
-);
+const workspace = await createExampleWorkspace('example09', 'k21-codex-readonly-review-');
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex();

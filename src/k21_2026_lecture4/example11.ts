@@ -3,9 +3,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
@@ -13,6 +12,7 @@ import { Codex } from '@openai/codex-sdk';
 import {
   assertNoFileChanges,
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -22,55 +22,8 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-implement-review-'));
+const workspace = await createExampleWorkspace('example11', 'k21-codex-implement-review-');
 const filePath = join(workspace, 'featureFlags.js');
-await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
-await writeFile(
-  filePath,
-  `
-export function parseFeatureFlags(text) {
-  return Object.fromEntries(text.split(',').map((entry) => entry.split('=')));
-}
-`.trim()
-);
-await writeFile(
-  join(workspace, 'featureFlags.md'),
-  `
-# Feature flag parser
-
-Implement parseFeatureFlags(text).
-Input is a comma-separated list such as "search=true, beta=false".
-Keys should be trimmed strings.
-Values must be "true" or "false" and should become booleans.
-Empty entries and invalid values should throw clear errors.
-`.trim()
-);
-await writeFile(
-  join(workspace, 'featureFlags.test.js'),
-  `
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-
-import { parseFeatureFlags } from './featureFlags.js';
-
-test('parses boolean feature flags', () => {
-  assert.deepEqual(parseFeatureFlags('search=true, beta=false'), {
-    beta: false,
-    search: true,
-  });
-});
-
-test('trims keys and values', () => {
-  assert.deepEqual(parseFeatureFlags(' search = true '), { search: true });
-});
-
-test('rejects invalid input', () => {
-  assert.throws(() => parseFeatureFlags('search=yes'), /true or false/);
-  assert.throws(() => parseFeatureFlags('=true'), /key/);
-  assert.throws(() => parseFeatureFlags(''), /empty/);
-});
-`.trim()
-);
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });

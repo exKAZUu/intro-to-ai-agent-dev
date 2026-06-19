@@ -3,9 +3,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
@@ -13,6 +12,7 @@ import { Codex } from '@openai/codex-sdk';
 import {
   assertCommandSucceeded,
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -22,17 +22,8 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-workspace-write-'));
+const workspace = await createExampleWorkspace('example07', 'k21-codex-workspace-write-');
 const catalogPath = join(workspace, 'lessonCatalog.js');
-await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
-await writeFile(
-  catalogPath,
-  `
-export function describeLesson(lesson) {
-  return lesson.title + ": " + lesson.minutes + "分";
-}
-  `.trim()
-);
 await execFileAsync('git', ['init'], { cwd: workspace });
 await execFileAsync('git', ['add', 'lessonCatalog.js'], { cwd: workspace });
 

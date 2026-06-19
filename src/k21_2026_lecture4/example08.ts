@@ -3,9 +3,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
@@ -13,6 +12,7 @@ import { Codex } from '@openai/codex-sdk';
 import {
   assertCommandSucceeded,
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -22,35 +22,8 @@ import {
 } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
-const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-fix-verify-'));
+const workspace = await createExampleWorkspace('example08', 'k21-codex-fix-verify-');
 const scriptPath = join(workspace, 'discount.js');
-await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
-await writeFile(
-  scriptPath,
-  `
-export function applyDiscount(price, percent) {
-  return price * percent;
-}
-`.trim()
-);
-await writeFile(
-  join(workspace, 'discount.test.js'),
-  `
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-
-import { applyDiscount } from './discount.js';
-
-test('applies a percentage discount', () => {
-  assert.equal(applyDiscount(1000, 20), 800);
-});
-
-test('rejects invalid percentages', () => {
-  assert.throws(() => applyDiscount(1000, -1), /percent/);
-  assert.throws(() => applyDiscount(1000, 100), /percent/);
-});
-`.trim()
-);
 await execFileAsync('git', ['init'], { cwd: workspace });
 
 const codex = new Codex({ env: createCodexEnv(workspace) });

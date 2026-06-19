@@ -1,0 +1,6 @@
+name,attendance_type,satisfaction,hardest_topic,hands_on_completed,request
+Alice,対面,5,tools,完了,実用例を増やしたい
+Bob,オンライン,3,MCP,未完了,接続手順を詳しく知りたい
+Carol,対面,4,MCP,完了,Excel連携を試したい
+Dave,録画,2,guardrails,未完了,失敗例があると理解しやすい
+Eve,対面,5,tools,完了,業務に近い題材がよい

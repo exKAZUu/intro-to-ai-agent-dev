@@ -3,9 +3,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 
 import { Codex } from '@openai/codex-sdk';
@@ -13,6 +12,7 @@ import { Codex } from '@openai/codex-sdk';
 import {
   assertNoFileChanges,
   createCodexEnv,
+  createExampleWorkspace,
   displayCommandExecutions,
   displayFileChanges,
   displayFinalResponse,
@@ -32,38 +32,7 @@ if (threadId && existingWorkspace) {
 }
 
 async function planWork() {
-  const workspace = await mkdtemp(join(tmpdir(), 'k21-codex-resume-workflow-'));
-  await writeFile(join(workspace, 'package.json'), '{"type":"module"}');
-  await writeFile(
-    join(workspace, 'task.md'),
-    `
-# Task
-
-Create validator.js for workshop signup data.
-It should export validateSignup(input), return normalized data for valid input, and throw clear errors for missing name or invalid email.
-`.trim()
-  );
-  await writeFile(
-    join(workspace, 'validator.test.js'),
-    `
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
-
-import { validateSignup } from './validator.js';
-
-test('normalizes valid signup data', () => {
-  assert.deepEqual(validateSignup({ name: '  Alice ', email: 'ALICE@EXAMPLE.COM' }), {
-    name: 'Alice',
-    email: 'alice@example.com',
-  });
-});
-
-test('rejects invalid data', () => {
-  assert.throws(() => validateSignup({ name: '', email: 'a@example.com' }), /name/);
-  assert.throws(() => validateSignup({ name: 'Alice', email: 'alice' }), /email/);
-});
-`.trim()
-  );
+  const workspace = await createExampleWorkspace('example12', 'k21-codex-resume-workflow-');
   await execFileAsync('git', ['init'], { cwd: workspace });
 
   const codex = new Codex({ env: createCodexEnv(workspace) });
