@@ -4,7 +4,13 @@
 
 import { Codex, type RunResult } from '@openai/codex-sdk';
 
-import { assertNoFileChanges, displayFinalResponse, displayItemSummary, displayThreadInfo, displayWebSearches } from './helpers.js';
+import {
+  assertNoFileChanges,
+  displayFinalResponse,
+  displayItemSummary,
+  displayThreadInfo,
+  displayWebSearches,
+} from './helpers.js';
 
 const codex = new Codex();
 const liveSearchTimeoutMs = 60_000;
@@ -12,7 +18,7 @@ let usedFallback = false;
 
 const prompt = `
 src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example07.ts を読み、Codex SDKの使い方を確認してください。
-さらにweb searchでCodex SDKまたはOpenAI公式ドキュメントの関連情報を確認し、授業で補足すべき注意点を3つ挙げてください。
+さらにWeb検索でCodex SDKまたはOpenAI公式ドキュメントの関連情報を確認し、授業で補足すべき注意点を3つ挙げてください。
 参照先はOpenAI公式ドキュメントまたはCodex SDKの公式情報に限定してください。
 ファイルは変更しないでください。
 `.trim();
@@ -53,7 +59,8 @@ async function runLocalFallback(reason: string) {
     webSearchMode: 'disabled',
     modelReasoningEffort: 'low',
   });
-  return await thread.run(`
+  return await thread.run(
+    `
 web search が利用できない、または利用できたことを確認できない環境として扱います。
 src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example07.ts を読み、
 ローカルコード文脈だけから授業で補足すべき注意点を3つ挙げてください。
@@ -62,7 +69,8 @@ src/k21_2026_lecture4/example01.ts と src/k21_2026_lecture4/example07.ts を読
 
 fallback理由:
 ${reason}
-`.trim());
+`.trim()
+  );
 }
 
 async function runWithTimeout(prompt: string, timeoutMs: number) {

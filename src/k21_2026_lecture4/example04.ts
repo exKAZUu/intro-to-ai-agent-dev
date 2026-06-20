@@ -5,7 +5,13 @@
 import { Agent, run, type Usage as AgentsUsage } from '@openai/agents';
 import { Codex, type ThreadOptions, type Usage as CodexUsage } from '@openai/codex-sdk';
 
-import { displayFinalResponse, displayItemSummary, displayJson, displayThreadInfo, displayWorkspace } from './helpers.js';
+import {
+  displayFinalResponse,
+  displayItemSummary,
+  displayJson,
+  displayThreadInfo,
+  displayWorkspace,
+} from './helpers.js';
 
 const model = 'gpt-5.5';
 const workspace = process.cwd();
@@ -24,6 +30,7 @@ const task = `
 `.trim();
 
 const agentsResult = await run(createAgentsSdkAgent(), task, { maxTurns: 1 });
+
 const codexThreadOptions: ThreadOptions = {
   approvalPolicy: 'never',
   model,
